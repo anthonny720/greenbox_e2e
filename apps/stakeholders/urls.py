@@ -1,0 +1,36 @@
+from django.urls import path
+from .views import (
+    RawMaterialSupplierListAPIView,
+    RawMaterialSupplierUpdateAPIView,
+    RawMaterialSupplierDeleteAPIView,
+    MaterialSupplierListAPIView,
+    MaterialSupplierUpdateAPIView,
+    MaterialSupplierDeleteAPIView,
+    ClientListAPIView,
+    ClientUpdateAPIView,
+    ClientDeleteAPIView,
+    TransportationCompanyListAPIView,
+    TransportationCompanyUpdateAPIView,
+    TransportationCompanyDeleteAPIView,
+    ManufacturingCompanyListAPIView,
+    ManufacturingCompanyUpdateAPIView,
+    ManufacturingCompanyDeleteAPIView,
+)
+
+urlpatterns = [
+    path('raw-material-suppliers/', RawMaterialSupplierListAPIView.as_view(), name='raw-material-supplier-list'),
+    path('raw-material-suppliers/<uuid:pk>/', RawMaterialSupplierUpdateAPIView.as_view(), name='raw-material-supplier-update'),
+    path('raw-material-suppliers/delete/<uuid:pk>/', RawMaterialSupplierDeleteAPIView.as_view(), name='raw-material-supplier-delete'),
+    path('material-suppliers/', MaterialSupplierListAPIView.as_view(), name='material-supplier-list'),
+    path('material-suppliers/<uuid:pk>/', MaterialSupplierUpdateAPIView.as_view(), name='material-supplier-update'),
+    path('material-suppliers/delete/<uuid:pk>/', MaterialSupplierDeleteAPIView.as_view(), name='material-supplier-delete'),
+    path('clients/', ClientListAPIView.as_view(), name='client-list'),
+    path('clients/<uuid:pk>/', ClientUpdateAPIView.as_view(), name='client-update'),
+    path('clients/delete/<uuid:pk>/', ClientDeleteAPIView.as_view(), name='client-delete'),
+    path('transportation-companies/', TransportationCompanyListAPIView.as_view(), name='transportation-company-list'),
+    path('transportation-companies/<uuid:pk>/', TransportationCompanyUpdateAPIView.as_view(), name='transportation-company-update'),
+    path('transportation-companies/delete/<uuid:pk>/', TransportationCompanyDeleteAPIView.as_view(), name='transportation-company-delete'),
+    path('manufacturing-companies/', ManufacturingCompanyListAPIView.as_view(), name='manufacturing-company-list'),
+    path('manufacturing-companies/<uuid:pk>/', ManufacturingCompanyUpdateAPIView.as_view(), name='manufacturing-company-update'),
+    path('manufacturing-companies/delete/<uuid:pk>/', ManufacturingCompanyDeleteAPIView.as_view(), name='manufacturing-company-delete'),
+]

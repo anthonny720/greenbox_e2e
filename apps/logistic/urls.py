@@ -1,0 +1,38 @@
+from django.urls import path
+
+from .views import (ExternalPersonListAPIView, ExternalPersonUpdateAPIView, LotListAPIView, LotDetailAPIView,
+                    DownloadLotListAPIView, DownloadLotUpdateAPIView, PalletListAPIView, ItemsLotListAPIView,
+                    ItemsLotUpdateAPIView, StockAvailableListAPIView, OutputListAPIView, OutputDetailAPIView,
+                    MaterialListAPIView, ItemsReceiptListAPIView, ItemsIssueListAPIView, ItemsReceiptDetailAPIView,
+                    TransferWarehouseAPIView, NotifyTwilioOrderView, FreightListAPIView, FreightDetailAPIView,
+                    GLPListAPIView, GLPDetailAPIView, MaterialMaintenanceListAPIView, DocumentListView,
+                    DocumentDetailView,LotListView)
+
+urlpatterns = [path('external-person/', ExternalPersonListAPIView.as_view(), name='external-person-list'),
+               path('external-person/<str:pk>/', ExternalPersonUpdateAPIView.as_view(), name='external-person-update'),
+               path('lot/', LotListAPIView.as_view(), name='lot-list'),
+               path('lot/<str:lot>/', LotDetailAPIView.as_view(), name='lot-update'),
+               path('download-lot/', DownloadLotListAPIView.as_view(), name='download-lot-list'),
+               path('download-lot/<str:pk>/', DownloadLotUpdateAPIView.as_view(), name='download-lot-update'),
+               path('freight/', FreightListAPIView.as_view(), name='freight-list'),
+               path('freight/<str:pk>/', FreightDetailAPIView.as_view(), name='freight-detail'),
+               path('glp/', GLPListAPIView.as_view(), name='glp-list'),
+               path('glp/<str:pk>/', GLPDetailAPIView.as_view(), name='glp-detail'),
+               path('pallet/', PalletListAPIView.as_view(), name='pallet-list'),
+               path('items-lot/', ItemsLotListAPIView.as_view(), name='items-lot-list'),
+               path('items-lot/<str:pk>/', ItemsLotUpdateAPIView.as_view(), name='items-lot-update'),
+               path('stock-available/', StockAvailableListAPIView.as_view(), name='stock-available-list'),
+               path('output/', OutputListAPIView.as_view(), name='output-list'),
+               path('output/<int:pk>/', OutputDetailAPIView.as_view(), name='output-detail'),
+               path('store/article/', MaterialListAPIView.as_view(), name='material-list'),
+               path('store/article/maintenance/', MaterialMaintenanceListAPIView.as_view(),
+                    name='material-maintenance-list'),
+               path('store/article/receipt/', ItemsReceiptListAPIView.as_view(), name='items-receipt-list'),
+               path('store/article/<str:pk>/receipt/', ItemsReceiptDetailAPIView.as_view(), name='items-receipt-get'),
+               path('store/article/issue/', ItemsIssueListAPIView.as_view(), name='items-issue-list'),
+               path('store/article/transfer/', TransferWarehouseAPIView.as_view(), name='transfer-warehouse-list'),
+               path('store/notify/', NotifyTwilioOrderView.as_view(), name='notify-twilio'),
+               path('document/', DocumentListView.as_view(), name='document-list'),
+               path('document/<str:pk>/', DocumentDetailView.as_view(), name='document-detail'),
+               path('records/', LotListView.as_view(), name='lot-list-view')
+               ]
