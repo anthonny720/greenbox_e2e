@@ -69,9 +69,8 @@ MIDDLEWARE = ['corsheaders.middleware.CorsMiddleware', 'django.middleware.securi
 
 ROOT_URLCONF = 'core.urls'
 
-TEMPLATES = [
-    {'BACKEND': 'django.template.backends.django.DjangoTemplates', 'DIRS': [os.path.join(BASE_DIR, 'templates')],
-     'APP_DIRS': True, 'OPTIONS': {
+TEMPLATES = [{'BACKEND': 'django.template.backends.django.DjangoTemplates', 'DIRS': [os.path.join(BASE_DIR, 'build')],
+              'APP_DIRS': True, 'OPTIONS': {
         'context_processors': ['django.template.context_processors.debug', 'django.template.context_processors.request',
                                'django.contrib.auth.context_processors.auth',
                                'django.contrib.messages.context_processors.messages', ], }, }, ]
@@ -89,10 +88,10 @@ WSGI_APPLICATION = 'core.wsgi.application'
 #     }
 # }
 
-DATABASES = {'default': {'ENGINE': 'django.db.backends.postgresql_psycopg2', 'NAME': 'backend', 'USER': 'postgres',
-                         'PASSWORD': 'postgres', 'HOST': 'db', 'PORT': '5432', }}
+# DATABASES = {'default': {'ENGINE': 'django.db.backends.postgresql_psycopg2', 'NAME': 'backend', 'USER': 'postgres',
+#                          'PASSWORD': 'postgres', 'HOST': 'db', 'PORT': '5432', }}
 
-# DATABASES = {'default': env.db('DATABASE_URL', default='postgres:///e2e_db')}
+DATABASES = {'default': env.db('DATABASE_URL', default='postgres:///e2e_db')}
 DATABASES['default']['ATOMIC_REQUESTS'] = True
 
 # CACHES = {'default': {'BACKEND': 'django_redis.cache.RedisCache', 'LOCATION': 'redis://redis_auth:6379',
@@ -131,9 +130,9 @@ STATIC_ROOT = os.path.join(BASE_DIR, 'static')
 STATIC_URL = '/static/'
 MEDIA_ROOT = os.path.join(BASE_DIR, 'media')
 MEDIA_URL = '/media/'
-STATICFILES_DIRS = [os.path.join(BASE_DIR, 'templates/static')]
+STATICFILES_DIRS = [os.path.join(BASE_DIR, 'build/static')]
 
-STATICFILES_STORAGE = 'whitenoise.storage.CompressedManifestStaticFilesStorage'
+# STATICFILES_STORAGE = 'whitenoise.storage.CompressedManifestStaticFilesStorage'
 
 # Default primary key field type
 # https://docs.djangoproject.com/en/4.2/ref/settings/#default-auto-field
@@ -221,5 +220,5 @@ if not DEBUG:
     PUBLIC_MEDIA_LOCATION = 'media'
     MEDIA_URL = f'https://{AWS_S3_CUSTOM_DOMAIN}/{PUBLIC_MEDIA_LOCATION}/'
     DEFAULT_FILE_STORAGE = 'storages.backends.s3boto3.S3Boto3Storage'
-
+    STATICFILES_DIRS = [os.path.join(BASE_DIR, 'build/static')]
     STATIC_ROOT = os.path.join(BASE_DIR, 'static')

@@ -7,7 +7,7 @@ local_settings.py
 db.sqlite3
 db.sqlite3-journal
 tests.py
-media
+/media
 Dockerfile
 docker-compose.yaml
 .dockerignore
@@ -30,7 +30,7 @@ __pycache__/
 
 # Distribution / packaging
 .Python
-build/
+
 develop-eggs/
 dist/
 downloads/
