@@ -158,15 +158,15 @@ class LotDetailAPIView(APIView):
         boss_production = User.objects.filter(position__name='Jefe de producción').first()
 
         if boss and manager and boss_production:
-            signature.append({'name': boss.get_full_name(), 'email': boss.email, 'signature': boss.get_signature_url()})
+            signature.append({'name': boss.get_full_name(), 'email': boss.email, 'signature': boss.get_signature_url(), 'position': boss.position.name})
             signature.append(
-                {'name': manager.get_full_name(), 'email': manager.email, 'signature': manager.get_signature_url()})
+                {'name': manager.get_full_name(), 'email': manager.email, 'signature': manager.get_signature_url(), 'position': manager.position.name})
             signature.append({'name': boss_production.get_full_name(), 'email': boss_production.email,
-                              'signature': boss_production.get_signature_url()})
+                              'signature': boss_production.get_signature_url(), 'position': boss_production.position.name})
         else:
-            signature.append({'name': '', 'email': '', 'signature': ''})
-            signature.append({'name': '', 'email': '', 'signature': ''})
-            signature.append({'name': '', 'email': '', 'signature': ''})
+            signature.append({'name': '', 'email': '', 'signature': '', 'position': ''})
+            signature.append({'name': '', 'email': '', 'signature': '', 'position': ''})
+            signature.append({'name': '', 'email': '', 'signature': '', 'position': ''})
 
         return Response({'data': serializer.data, 'signature': signature}, status=status.HTTP_200_OK)
 

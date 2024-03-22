@@ -51,10 +51,10 @@ class Position(models.Model):
 
 
 def user_directory_path(instance, filename):
-    return f'users/picture_{instance.username}.{filename.split(".")[1]}'
+    return f'users/picture_{instance.slug}.{filename.split(".")[1]}'
 
 def signature_directory_path(instance, filename):
-    return f'users/signature_{instance.username}.{filename.split(".")[1]}'
+    return f'users/signature_{instance.slug}.{filename.split(".")[1]}'
 
 
 class UserManager(BaseUserManager):
