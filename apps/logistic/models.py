@@ -158,7 +158,7 @@ class Lot(models.Model):
         self.parcels_string = ', '.join([parcel.name for parcel in self.parcels.all()]) if self.parcels.all() else ''
         self.weight_net = sum(item.get_net_weight() for item in self.items_lot.all()) + self.sample_weight
         self.weight_gross = sum(item.weight for item in self.items_lot.all()) + self.sample_weight
-        self.stock = self.calc_stock()
+        # self.stock = self.calc_stock()
         try:
             self.total_amount = self.calc_total_amount()
             self.plant_price = self.total_amount / self.weight_usable if self.weight_usable > 0 else 0
@@ -175,9 +175,10 @@ class Lot(models.Model):
         return total_amount
 
     def calc_stock(self):
-        weight_net = self.weight_net - self.sample_weight
+        weight_net = decimal.Decimal(self.weight_net) - decimal.Decimal(
+            self.sample_weight) if self.weight_net > 0 else 0
         output = sum(output.kg for output in self.output.all())
-        stock = weight_net - decimal.Decimal(output)
+        stock = decimal.Decimal(weight_net) - decimal.Decimal(output) if weight_net > 0 else 0
         return stock
 
     def calc_items_fields(self):
@@ -387,18 +388,20 @@ class Output(models.Model):
                                default='P')
     history = HistoricalRecords()
 
+    def update_stock(self):
+        self.lot.stock = self.lot.calc_stock()
+        self.lot.save()
+
+    def save(self, *args, **kwargs):
+        super(Output, self).save(*args, **kwargs)
+        self.update_stock()
+
+    def delete(self, *args, **kwargs):
+        super(Output, self).delete(*args, **kwargs)
+        self.update_stock()
+
     def __str__(self):
         return self.date.strftime('%d/%m/%Y') + "  -  " + self.lot.lot + " - " + str(self.kg)
-
-
-@receiver(post_save, sender=Output)
-def dispatch_after_save_download(sender, instance, **kwargs):
-    instance.lot.calc_stock()
-
-
-@receiver(post_delete, sender=Output)
-def dispatch_after_delete_download(sender, instance, **kwargs):
-    instance.lot.calc_stock()
 
 
 class ItemsProxy(models.Model):

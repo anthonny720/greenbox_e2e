@@ -1,7 +1,7 @@
 {
   "files": {
     "main.css": "/static/css/main.3565c8bf.css",
-    "main.js": "/static/js/main.97c3dd21.js",
+    "main.js": "/static/js/main.00ef9a81.js",
     "static/media/fotocheck.jpg": "/static/media/fotocheck.e02b21fff235a943cc30.jpg",
     "static/media/back.png": "/static/media/back.a4ccd9cdf94955ea70f8.png",
     "static/media/login.png": "/static/media/login.8db7a8ed4061397336ab.png",
@@ -9,10 +9,10 @@
     "static/media/Cascadia.woff": "/static/media/Cascadia.9c679782671c61f121fc.woff",
     "index.html": "/index.html",
     "main.3565c8bf.css.map": "/static/css/main.3565c8bf.css.map",
-    "main.97c3dd21.js.map": "/static/js/main.97c3dd21.js.map"
+    "main.00ef9a81.js.map": "/static/js/main.00ef9a81.js.map"
   },
   "entrypoints": [
     "static/css/main.3565c8bf.css",
-    "static/js/main.97c3dd21.js"
+    "static/js/main.00ef9a81.js"
   ]
 }
