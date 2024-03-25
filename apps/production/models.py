@@ -1,9 +1,6 @@
 import uuid
-from io import BytesIO
 
-from PIL import Image
 from apps.logistic.models import Lot
-from django.core.files.uploadedfile import InMemoryUploadedFile
 from django.db import models
 from django.db.models import Sum, F
 from django.db.models.signals import post_save, post_delete
@@ -41,7 +38,7 @@ class BaseConditioning(models.Model):
 
     class Meta:
         abstract = True
-        ordering = ['date','id']
+        ordering = ['date', 'id']
 
     def save(self, *args, **kwargs):
         if self.id and not self._state.adding:
@@ -101,15 +98,8 @@ class ThumbnailProcess(models.Model):
     def __str__(self):
         return self.photo.name
 
-    def save(self, *args, **kwargs):
-        if self.photo:
-            img = Image.open(self.photo)
-            output = BytesIO()
-            img.save(output, format='JPEG', quality=75)
-            output.seek(0)
-            self.photo = InMemoryUploadedFile(output, 'ImageField', f"{self.photo.name.split('.')[0]}_compressed.jpg",
-                                              'image/jpeg', output.tell(), None)
-        super().save(*args, **kwargs)
+    def get_absolute_url(self):
+        return self.photo.url if self.photo else ''
 
 
 @receiver(post_delete, sender=ThumbnailProcess)

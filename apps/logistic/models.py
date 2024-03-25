@@ -132,7 +132,7 @@ class Lot(models.Model):
     download_price = models.DecimalField(max_digits=7, decimal_places=2, verbose_name='Precio de Descarga', blank=True,
                                          null=True, editable=False, default=0)
     freight = models.DecimalField(max_digits=7, decimal_places=2, verbose_name='Flete', blank=True, null=True,
-                                  editable=False, default=0)
+                                  default=0, editable=False)
     plant_price = models.DecimalField(max_digits=7, decimal_places=2, verbose_name='Precio de Planta', blank=True,
                                       null=True, editable=False, default=0)
     total_amount = models.DecimalField(max_digits=7, decimal_places=2, verbose_name='Monto Total', blank=True,
@@ -145,14 +145,6 @@ class Lot(models.Model):
     def __str__(self):
         return self.lot
 
-    def cal_items_download_price(self):
-        try:
-            download_lot = self.download_lot
-            self.download_price = download_lot.cost
-        except DownloadLot.DoesNotExist:
-            self.download_price = 0
-        self.save()
-
     def calc_weight_reject(self):
         total_rejected_kg = 0
         total_rejected_kg += sum(p.rejected_kg for p in self.conditioningpineapple_set.all())
@@ -162,22 +154,18 @@ class Lot(models.Model):
         self.weight_usable = self.weight_net - total_rejected_kg if self.weight_net > 0 else 0
         self.save()
 
-    def save(self, force_insert=False, force_update=False, using=None, update_fields=None):
+    def save(self, *args, **kwargs):
         self.parcels_string = ', '.join([parcel.name for parcel in self.parcels.all()]) if self.parcels.all() else ''
         self.weight_net = sum(item.get_net_weight() for item in self.items_lot.all()) + self.sample_weight
         self.weight_gross = sum(item.weight for item in self.items_lot.all()) + self.sample_weight
+        self.stock = self.calc_stock()
         try:
             self.total_amount = self.calc_total_amount()
             self.plant_price = self.total_amount / self.weight_usable if self.weight_usable > 0 else 0
         except:
             self.total_amount = 0
             self.plant_price = 0
-
-        super().save(force_insert, force_update, using, update_fields)
-
-    def cal_items_download_price_zero(self):
-        self.download_price = 0
-        self.save()
+        super(Lot, self).save(*args, **kwargs)
 
     def calc_total_amount(self):
         first_kg = self.weight_usable - self.discount_price_kg if self.weight_usable > 0 else 0
@@ -187,18 +175,10 @@ class Lot(models.Model):
         return total_amount
 
     def calc_stock(self):
-        weight_net = self.weight_net
+        weight_net = self.weight_net - self.sample_weight
         output = sum(output.kg for output in self.output.all())
-        self.stock = weight_net - decimal.Decimal(output)
-        self.save()
-
-    def calc_freight(self):
-        try:
-            freight = self.freight_lot
-            self.freight = freight.total_cost
-        except Freight.DoesNotExist:
-            self.freight = 0
-        self.save()
+        stock = weight_net - decimal.Decimal(output)
+        return stock
 
     def calc_items_fields(self):
         try:
@@ -346,15 +326,15 @@ class DownloadLot(models.Model):
     def __str__(self):
         return f'{self.lot.lot} - {self.status} - {self.payment_date} - {self.cost} - {self.external}'
 
+    def save(self, *args, **kwargs):
+        self.lot.download_price = self.cost
+        self.lot.save()
+        super(DownloadLot, self).save(*args, **kwargs)
 
-@receiver(post_save, sender=DownloadLot)
-def dispatch_after_save_download(sender, instance, **kwargs):
-    instance.lot.cal_items_download_price()
-
-
-@receiver(post_delete, sender=DownloadLot)
-def dispatch_after_delete_download(sender, instance, **kwargs):
-    instance.lot.cal_items_download_price_zero()
+    def delete(self, *args, **kwargs):
+        self.lot.download_price = 0
+        self.lot.save()
+        super(DownloadLot, self).delete(*args, **kwargs)
 
 
 class Freight(models.Model):
@@ -381,13 +361,14 @@ class Freight(models.Model):
         self.total_cost = self.cost_false + cost_shipping
         detraction = round(float(self.total_cost) * 0.04 if self.total_cost > 0 else 0, 2)
         self.total_cost = float(self.total_cost) - detraction
+        self.lot.freight = self.total_cost
+        self.lot.save()
         super(Freight, self).save(*args, **kwargs)
 
-
-@receiver(post_save, sender=Freight)
-@receiver(post_delete, sender=Freight)
-def update_stock(sender, instance, **kwargs):
-    instance.lot.calc_freight()
+    def delete(self, using=None, keep_parents=False):
+        self.lot.freight = 0
+        self.lot.save()
+        super(Freight, self).delete(using, keep_parents)
 
 
 class Output(models.Model):
@@ -492,6 +473,7 @@ class ItemsReceipt(models.Model):
             self.save()
         except Exception as e:
             pass
+
 
 class ItemsIssue(models.Model):
     class Meta:

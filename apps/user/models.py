@@ -124,6 +124,9 @@ class UserAccount(AbstractBaseUser, PermissionsMixin):
     def get_full_name(self):
         return f"{self.first_name} {self.last_name}" if self.first_name and self.last_name else self.email
 
+    def get_short_name(self):
+        return self.first_name if self.first_name else self.email
+
     def get_signature_url(self):
         return self.signature.url if self.signature else None
 

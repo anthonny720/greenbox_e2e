@@ -26,6 +26,7 @@ class ConditioningPineappleSerializer(serializers.ModelSerializer):
 
 
 class ThumbnailProcessSerializer(serializers.ModelSerializer):
+    path = serializers.CharField(source='get_absolute_url', read_only=True)
     class Meta:
         model = ThumbnailProcess
         fields = '__all__'

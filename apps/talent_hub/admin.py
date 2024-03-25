@@ -3,6 +3,7 @@ from import_export.admin import ImportExportModelAdmin
 from simple_history.admin import SimpleHistoryAdmin
 
 from .models import Tracking, Holiday, Staff, Absenteeism
+from .resources import StaffResource
 
 
 # Register your models here.
@@ -24,6 +25,7 @@ class HolidayAdmin(ImportExportModelAdmin, SimpleHistoryAdmin):
 
 @admin.register(Staff)
 class StaffAdmin(ImportExportModelAdmin, SimpleHistoryAdmin):
+    resource_class = StaffResource
     list_display = ('name', 'last_name', 'dni', 'area', 'status',)
     search_fields = ('name', 'last_name', 'dni',)
     ordering = ['name']
