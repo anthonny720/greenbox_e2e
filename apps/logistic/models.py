@@ -8,6 +8,7 @@ from apps.stakeholders.models import (RawMaterialSupplier, TransportationCompany
 from apps.user.models import Departments
 from django.core.exceptions import ObjectDoesNotExist
 from django.db import models
+from django.db.models import Sum
 from django.db.models.signals import post_delete
 from django.db.models.signals import post_save
 from django.dispatch import receiver
@@ -112,7 +113,7 @@ class Lot(models.Model):
     freight_boxes = models.IntegerField(verbose_name='Flete por envio de jabas', blank=True, null=True, default=0)
 
     # Other fields to be added but edition is blocked for calculation purposes
-    discount_weight_percentage = models.DecimalField(max_digits=10, decimal_places=8, default=0,
+    discount_weight_percentage = models.DecimalField(max_digits=12, decimal_places=8, default=0,
                                                      verbose_name='Porcentaje de Peso de Descuento', blank=True,
                                                      null=True, editable=False)
     boxes = models.IntegerField(verbose_name='Contenedores', blank=True, null=True, editable=False, default=0)
@@ -146,56 +147,55 @@ class Lot(models.Model):
         return self.lot
 
     def calc_weight_reject(self):
-        total_rejected_kg = 0
-        total_rejected_kg += sum(p.rejected_kg for p in self.conditioningpineapple_set.all())
-        total_rejected_kg += sum(s.rejected_kg for s in self.conditioningsweetpotato_set.all())
+        total_rejected_kg_pineapple = self.conditioningpineapple_set.aggregate(total=Sum('rejected_kg'))['total'] or 0
+        total_rejected_kg_sweetpotato = self.conditioningsweetpotato_set.aggregate(total=Sum('rejected_kg'))['total'] or 0
+        total_rejected_kg = total_rejected_kg_pineapple + total_rejected_kg_sweetpotato
         self.weight_reject = total_rejected_kg
-        self.discount_weight_percentage = total_rejected_kg / self.weight_net * 100 if self.weight_net > 0 else 0
+        self.discount_weight_percentage = round(total_rejected_kg / self.weight_net * 100,
+                                                8) if self.weight_net > 0 else 0
         self.weight_usable = self.weight_net - total_rejected_kg if self.weight_net > 0 else 0
-        self.save()
+        self.save(update_fields=['weight_reject', 'discount_weight_percentage', 'weight_usable'])
+
 
     def save(self, *args, **kwargs):
         self.parcels_string = ', '.join([parcel.name for parcel in self.parcels.all()]) if self.parcels.all() else ''
-        self.weight_net = sum(item.get_net_weight() for item in self.items_lot.all()) + self.sample_weight
-        self.weight_gross = sum(item.weight for item in self.items_lot.all()) + self.sample_weight
-        # self.stock = self.calc_stock()
-        try:
-            self.total_amount = self.calc_total_amount()
-            self.plant_price = self.total_amount / self.weight_usable if self.weight_usable > 0 else 0
-        except:
-            self.total_amount = 0
-            self.plant_price = 0
+        self.stock = self.calc_stock()
+        self.total_amount = self.calc_total_amount()
+        self.plant_price = self.total_amount / self.weight_usable if self.weight_usable > 0 else 0
         super(Lot, self).save(*args, **kwargs)
 
     def calc_total_amount(self):
+        supplier_price = self.supplier_price or 0
         first_kg = self.weight_usable - self.discount_price_kg if self.weight_usable > 0 else 0
         discount_price = self.discount_price_kg * self.discount_price if self.discount_price_kg > 0 else 0
-        total_amount = (self.supplier_price * decimal.Decimal(
-            first_kg)) + self.freight + self.download_price + self.freight_boxes + discount_price
+
+        freight = self.freight or 0
+        download_price = self.download_price or 0
+        freight_boxes = self.freight_boxes or 0
+
+        total_amount = supplier_price * first_kg + freight + download_price + freight_boxes + discount_price
         return total_amount
 
     def calc_stock(self):
-        weight_net = decimal.Decimal(self.weight_net) - decimal.Decimal(
-            self.sample_weight) if self.weight_net > 0 else 0
-        output = sum(output.kg for output in self.output.all())
+        weight_net = decimal.Decimal(self.weight_net) - decimal.Decimal(self.sample_weight) if self.weight_net > 0 else 0
+        output = self.output.aggregate(total=Sum('kg'))['total'] or 0
         stock = decimal.Decimal(weight_net) - decimal.Decimal(output) if weight_net > 0 else 0
         return stock
 
     def calc_items_fields(self):
         try:
-            self.boxes = 0
-            self.pallets = 0
-            self.weight_boxes = 0
-            self.weight_pallet = 0
-            self.stock = 0
-            self.save()
-            for item in self.items_lot.all():
+            items_lot = self.items_lot.all().select_related('pallet')
+            self.boxes = self.pallets = self.weight_boxes = self.weight_pallet = self.stock = 0
+            for item in items_lot:
                 self.boxes += item.box_0_25 + item.box_0_5 + item.box_1 + item.box_1_5 + item.box_1_6
                 self.pallets += 1
                 self.weight_boxes += item.get_weight_boxes()
                 self.weight_pallet += item.pallet.weight
-                self.stock += item.get_net_weight()
-                self.save()
+            self.weight_net = items_lot.aggregate(total=Sum('weight'))['total'] or 0
+            self.weight_net += self.sample_weight
+            self.weight_net -= items_lot.aggregate(total=Sum('tare'))['total'] or 0
+            self.weight_gross = self.weight_boxes + self.weight_net
+            self.save(update_fields=['boxes', 'pallets', 'weight_boxes', 'weight_pallet', 'weight_net', 'weight_gross'])
         except ObjectDoesNotExist as e:
             pass
 
@@ -204,6 +204,7 @@ class Lot(models.Model):
 def add_freight(sender, instance, created, **kwargs):
     if created:
         Freight.objects.create(lot=instance, cost_unit=0, boxes_not_paid=0, cost_false=0, total_cost=0)
+        DownloadLot.objects.create(lot=instance, cost=0, status='P')
 
 
 def get_file_path(instance, filename):
@@ -238,6 +239,7 @@ class ItemsLot(models.Model):
         verbose_name = 'Item de Lote'
         verbose_name_plural = 'Items de Lotes'
         unique_together = ('lot', 'number')
+        ordering = ['number']
 
     id = models.UUIDField(primary_key=True, editable=False, default=uuid.uuid4, unique=True)
     lot = models.ForeignKey(Lot, on_delete=models.CASCADE, related_name='items_lot')
@@ -309,6 +311,7 @@ class DownloadLot(models.Model):
     class Meta:
         verbose_name = 'Servicio estiba/descarga'
         verbose_name_plural = 'Servicios estiba/descarga'
+        ordering = ['-lot__datetime_download_started']
 
     status_choices = (('P', 'Pendiente'), ('F', 'Finalizado'),)
 
@@ -342,6 +345,7 @@ class Freight(models.Model):
     class Meta:
         verbose_name = 'Flete'
         verbose_name_plural = 'Fletes'
+        ordering = ['-lot__datetime_download_started']
 
     id = models.UUIDField(primary_key=True, editable=False, default=uuid.uuid4, unique=True)
     lot = models.OneToOneField(Lot, on_delete=models.PROTECT, verbose_name='Lote', blank=False, null=False,
