@@ -1,5 +1,6 @@
 import decimal
 import uuid
+from decimal import Decimal
 
 from apps.agrisupply.models import Parcel
 from apps.category.models import Category
@@ -110,6 +111,7 @@ class Lot(models.Model):
     supplier_price = models.DecimalField(max_digits=7, decimal_places=2, verbose_name='Precio de Proveedor/Campo',
                                          blank=True, null=True)
     block = models.BooleanField(verbose_name='Bloqueado', blank=True, null=True, default=False)
+    boxes_send = models.IntegerField(verbose_name='Jabas enviadas', blank=True, null=True, default=0)
     freight_boxes = models.IntegerField(verbose_name='Flete por envio de jabas', blank=True, null=True, default=0)
 
     # Other fields to be added but edition is blocked for calculation purposes
@@ -148,7 +150,8 @@ class Lot(models.Model):
 
     def calc_weight_reject(self):
         total_rejected_kg_pineapple = self.conditioningpineapple_set.aggregate(total=Sum('rejected_kg'))['total'] or 0
-        total_rejected_kg_sweetpotato = self.conditioningsweetpotato_set.aggregate(total=Sum('rejected_kg'))['total'] or 0
+        total_rejected_kg_sweetpotato = self.conditioningsweetpotato_set.aggregate(total=Sum('rejected_kg'))[
+                                            'total'] or 0
         total_rejected_kg = total_rejected_kg_pineapple + total_rejected_kg_sweetpotato
         self.weight_reject = total_rejected_kg
         self.discount_weight_percentage = round(total_rejected_kg / self.weight_net * 100,
@@ -156,8 +159,10 @@ class Lot(models.Model):
         self.weight_usable = self.weight_net - total_rejected_kg if self.weight_net > 0 else 0
         self.save(update_fields=['weight_reject', 'discount_weight_percentage', 'weight_usable'])
 
-
     def save(self, *args, **kwargs):
+        amount = self.boxes_send / 3
+        amount = round(amount, 2)
+        self.freight_boxes = round(amount, 0)
         self.parcels_string = ', '.join([parcel.name for parcel in self.parcels.all()]) if self.parcels.all() else ''
         self.stock = self.calc_stock()
         self.total_amount = self.calc_total_amount()
@@ -165,19 +170,25 @@ class Lot(models.Model):
         super(Lot, self).save(*args, **kwargs)
 
     def calc_total_amount(self):
-        supplier_price = self.supplier_price or 0
-        first_kg = self.weight_usable - self.discount_price_kg if self.weight_usable > 0 else 0
-        discount_price = self.discount_price_kg * self.discount_price if self.discount_price_kg > 0 else 0
+        # Asegurarse de que todos los valores sean Decimal
+        supplier_price = Decimal(self.supplier_price or 0)
+        first_kg = Decimal(self.weight_usable - self.discount_price_kg if self.weight_usable > 0 else 0)
+        discount_price_kg = Decimal(self.discount_price_kg)
+        discount_price = discount_price_kg * Decimal(self.discount_price) if discount_price_kg > 0 else Decimal(0)
 
-        freight = self.freight or 0
-        download_price = self.download_price or 0
-        freight_boxes = self.freight_boxes or 0
+        freight = Decimal(self.freight or 0)
+        download_price = Decimal(self.download_price or 0)
+        freight_boxes = Decimal(self.freight_boxes or 0)
+        detraction = Decimal(0.04) * freight_boxes
+        freight_boxes -= detraction
 
+        # Ahora, todos los cálculos se realizan con Decimal, evitando el error
         total_amount = supplier_price * first_kg + freight + download_price + freight_boxes + discount_price
         return total_amount
 
     def calc_stock(self):
-        weight_net = decimal.Decimal(self.weight_net) - decimal.Decimal(self.sample_weight) if self.weight_net > 0 else 0
+        weight_net = decimal.Decimal(self.weight_net) - decimal.Decimal(
+            self.sample_weight) if self.weight_net > 0 else 0
         output = self.output.aggregate(total=Sum('kg'))['total'] or 0
         stock = decimal.Decimal(weight_net) - decimal.Decimal(output) if weight_net > 0 else 0
         return stock
@@ -363,9 +374,8 @@ class Freight(models.Model):
     def save(self, *args, **kwargs):
         self.cost_false = round(self.boxes_not_paid * self.cost_unit if self.boxes_not_paid > 0 else 0, 2)
         cost_shipping = self.lot.boxes * self.cost_unit if self.lot.boxes > 0 else 0
-        self.total_cost = self.cost_false + cost_shipping
-        detraction = round(float(self.total_cost) * 0.04 if self.total_cost > 0 else 0, 2)
-        self.total_cost = float(self.total_cost) - detraction
+        self.total_cost = (self.cost_false + cost_shipping)
+        self.total_cost = float(self.total_cost)
         self.lot.freight = self.total_cost
         self.lot.save()
         super(Freight, self).save(*args, **kwargs)

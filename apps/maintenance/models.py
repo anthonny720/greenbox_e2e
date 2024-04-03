@@ -254,7 +254,7 @@ class WorkOrder(models.Model):
 
     def get_signature_supervisor(self):
         try:
-            if self.validated:
+            if self.cleaned:
                 user = self.supervisor
                 return user.get_signature_url() if user else ""
             else:
@@ -264,7 +264,7 @@ class WorkOrder(models.Model):
 
     def get_resources(self):
         return [
-            {'article': item.article, 'quantity': item.quantity}
+            {'article': item.article, 'quantity': item.quantity, 'id':item.id}
             for item in self.resources_order.all() if self.resources_order is not None
         ]
 

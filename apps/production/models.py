@@ -30,10 +30,10 @@ class BaseConditioning(models.Model):
                                      editable=False)
     enabled_kg = models.DecimalField(max_digits=7, decimal_places=2, verbose_name='Kg Habilitado', default=0,
                                      editable=False)
-    brix = models.DecimalField(max_digits=3, decimal_places=2, verbose_name='Brix')
+    brix = models.DecimalField(max_digits=4, decimal_places=2, verbose_name='Brix')
     ph = models.DecimalField(max_digits=3, decimal_places=2, verbose_name='Ph')
     people = models.PositiveIntegerField(verbose_name='Personas')
-    duration = models.DurationField(verbose_name='Duración', help_text='HH:MM:SS', blank=True, null=True, default=None)
+    duration = models.DecimalField(verbose_name='Duración',  blank=True, null=True, default=0, max_digits=4,decimal_places=2)
     number_changes = models.PositiveIntegerField(verbose_name='Número de Cambios', default=0)
 
     class Meta:
@@ -81,7 +81,7 @@ def dispatch_after_conditioning_change(sender, instance, **kwargs):
 
 
 def get_file_path(instance, filename):
-    file = f'lot/{instance.lot.lot}/{filename}'
+    file = f'lot/{instance.lot.lot}/process/{filename}'
     return file
 
 
@@ -124,10 +124,11 @@ class PackingLot(models.Model):
     cut = models.ForeignKey(Cuts, on_delete=models.PROTECT, verbose_name='Corte', blank=True, null=True)
     category = models.CharField(max_length=1, choices=categories, verbose_name='Categoría', default='A')
     kg = models.DecimalField(max_digits=7, decimal_places=2, verbose_name='Kg', default=0)
-    humidity = models.DecimalField(max_digits=3, decimal_places=2, verbose_name='Humedad', default=0)
+    humidity = models.DecimalField(max_digits=4, decimal_places=2, verbose_name='Humedad', default=0)
     people = models.PositiveIntegerField(verbose_name='Personas', default=0)
-    duration = models.DurationField(verbose_name='Duración', help_text='HH:MM:SS', blank=True, null=True,
-                                    default='00:00:00')
+    duration = models.DecimalField(verbose_name='Duración', blank=True, null=True, default=0, max_digits=4,
+                                   decimal_places=2)
+
     process_kg_real = models.DecimalField(max_digits=7, decimal_places=2, verbose_name='Kg Procesado reales',
                                           default=0, )
     process_kg = models.DecimalField(max_digits=7, decimal_places=2, verbose_name='Kg Procesado', default=0,
