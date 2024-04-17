@@ -6,7 +6,6 @@ from django.db.models import Sum, F
 from django.db.models.signals import post_save, post_delete
 from django.dispatch import receiver
 
-
 class Cuts(models.Model):
     class Meta:
         verbose_name = 'Corte'
@@ -25,7 +24,7 @@ class BaseConditioning(models.Model):
     lot = models.ForeignKey(Lot, on_delete=models.PROTECT, verbose_name='Lote')
     cut = models.ForeignKey(Cuts, on_delete=models.PROTECT, verbose_name='Corte', blank=True, null=True)
     logistic_kg = models.DecimalField(max_digits=7, decimal_places=2, verbose_name='Kg Logístico')
-    rejected_kg = models.DecimalField(max_digits=7, decimal_places=2, verbose_name='Kg Rechazado')
+    rejected_kg = models.DecimalField(max_digits=8, decimal_places=3, verbose_name='Kg Rechazado')
     process_kg = models.DecimalField(max_digits=7, decimal_places=2, verbose_name='Kg Procesado', default=0,
                                      editable=False)
     enabled_kg = models.DecimalField(max_digits=7, decimal_places=2, verbose_name='Kg Habilitado', default=0,
@@ -33,7 +32,8 @@ class BaseConditioning(models.Model):
     brix = models.DecimalField(max_digits=4, decimal_places=2, verbose_name='Brix')
     ph = models.DecimalField(max_digits=3, decimal_places=2, verbose_name='Ph')
     people = models.PositiveIntegerField(verbose_name='Personas')
-    duration = models.DecimalField(verbose_name='Duración',  blank=True, null=True, default=0, max_digits=4,decimal_places=2)
+    duration = models.DecimalField(verbose_name='Duración', blank=True, null=True, default=0, max_digits=4,
+                                   decimal_places=2)
     number_changes = models.PositiveIntegerField(verbose_name='Número de Cambios', default=0)
 
     class Meta:
@@ -91,7 +91,7 @@ class ThumbnailProcess(models.Model):
         verbose_name_plural = 'Fotografías de Proceso'
 
     id = models.UUIDField(primary_key=True, editable=False, default=uuid.uuid4, unique=True)
-    photo = models.ImageField(upload_to=get_file_path, verbose_name='Fotografia', blank=False, null=False)
+    photo = models.FileField(upload_to=get_file_path, verbose_name='Fotografia', blank=False, null=False)
     lot = models.ForeignKey(Lot, on_delete=models.PROTECT, verbose_name='Lote', blank=True, null=True,
                             related_name='thumbnail_lot')
 
@@ -123,8 +123,8 @@ class PackingLot(models.Model):
 
     cut = models.ForeignKey(Cuts, on_delete=models.PROTECT, verbose_name='Corte', blank=True, null=True)
     category = models.CharField(max_length=1, choices=categories, verbose_name='Categoría', default='A')
-    kg = models.DecimalField(max_digits=7, decimal_places=2, verbose_name='Kg', default=0)
-    humidity = models.DecimalField(max_digits=4, decimal_places=2, verbose_name='Humedad', default=0)
+    kg = models.DecimalField(max_digits=8, decimal_places=3, verbose_name='Kg', default=0)
+    humidity = models.DecimalField(max_digits=5, decimal_places=2, verbose_name='Humedad', default=0)
     people = models.PositiveIntegerField(verbose_name='Personas', default=0)
     duration = models.DecimalField(verbose_name='Duración', blank=True, null=True, default=0, max_digits=4,
                                    decimal_places=2)

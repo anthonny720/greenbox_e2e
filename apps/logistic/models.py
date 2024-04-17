@@ -164,7 +164,6 @@ class Lot(models.Model):
         amount = round(amount, 2)
         self.freight_boxes = round(amount, 0)
         self.parcels_string = ', '.join([parcel.name for parcel in self.parcels.all()]) if self.parcels.all() else ''
-        self.stock = self.calc_stock()
         self.total_amount = self.calc_total_amount()
         self.plant_price = self.total_amount / self.weight_usable if self.weight_usable > 0 else 0
         super(Lot, self).save(*args, **kwargs)
@@ -191,7 +190,8 @@ class Lot(models.Model):
             self.sample_weight) if self.weight_net > 0 else 0
         output = self.output.aggregate(total=Sum('kg'))['total'] or 0
         stock = decimal.Decimal(weight_net) - decimal.Decimal(output) if weight_net > 0 else 0
-        return stock
+        self.stock = stock
+        self.save(update_fields=['stock'])
 
     def calc_items_fields(self):
         try:
@@ -316,6 +316,7 @@ class ItemsLot(models.Model):
 @receiver(post_delete, sender=ItemsLot)
 def dispatch_after_delete_update(sender, instance, **kwargs):
     instance.lot.calc_items_fields()
+    instance.lot.calc_stock()
 
 
 class DownloadLot(models.Model):
@@ -403,8 +404,7 @@ class Output(models.Model):
     history = HistoricalRecords()
 
     def update_stock(self):
-        self.lot.stock = self.lot.calc_stock()
-        self.lot.save()
+        self.lot.calc_stock()
 
     def save(self, *args, **kwargs):
         super(Output, self).save(*args, **kwargs)

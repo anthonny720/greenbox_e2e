@@ -1,11 +1,11 @@
-from datetime import datetime, timedelta, date
+from datetime import datetime, timedelta, date, time
 
 import requests
 from apps.user.models import Departments
 from apps.user.serializers import DepartmentWithChildrenSerializer
 from django.conf import settings
 from django.db import DatabaseError
-from django.db.models import Q
+from django.db.models import Q, Case, When, Value, CharField, DurationField, Count, Sum, F, ExpressionWrapper, fields
 from django.utils import timezone
 from rest_framework import status
 from rest_framework.response import Response
@@ -235,81 +235,118 @@ class CalendarView(APIView):
         try:
             start_date_str = request.query_params.get('start_date')
             end_date_str = request.query_params.get('end_date')
-            department = request.query_params.get('department')
-            user = request.query_params.get('user')
+            department_id = request.query_params.get('department')
+            user_query = request.query_params.get('user')
 
             start_date = datetime.strptime(start_date_str, '%Y-%m-%d').date()
             end_date = datetime.strptime(end_date_str, '%Y-%m-%d').date()
 
-            query_filter = {}
-            if user:
-                query_filter['full_name__icontains'] = user
-            else:
-                query_filter['trusted'] = False
+            staff_filter = Q(date_of_farewell__isnull=True) | Q(date_of_farewell__gte=start_date)
+            if department_id:
+                staff_filter &= Q(area__id=department_id)
+            if user_query:
+                staff_filter &= Q(full_name__icontains=user_query)
 
-            if department:
-                query_filter['area__id'] = department
+            users = Staff.objects.filter(staff_filter).order_by('name')
 
-            users = Staff.objects.filter(**query_filter)
-            users = users.exclude(date_of_farewell__lt=start_date) if users else users
+            relevant_attendances = Tracking.objects.filter(
+                date__range=[start_date, end_date],
+                staff__in=users
+            ).select_related('staff', 'absenteeism')
+
             dates = [start_date + timedelta(days=x) for x in range((end_date - start_date).days + 1)]
-            date_strs = [date.strftime('%d/%m') for date in dates]
-            users_summary = {user.get_full_name(): [] for user in users}
+            date_strs = [date.strftime('%Y-%m-%d') for date in dates]
 
-            for date in dates:
-                attendances = Tracking.objects.filter(date=date, staff__in=users)
-                for user in users:
-                    user_attendances = attendances.filter(staff=user)
-                    user_summary = calculate_user_summary(user_attendances)
-                    users_summary[user.get_full_name()].append(user_summary)
+            users_summary = {}
+
+            for user in users:
+                user_summary_per_date = []
+                for date in dates:
+                    attendance = relevant_attendances.filter(staff=user, date=date).first()
+                    summary = calculate_user_summary(attendance) if attendance else {}
+                    user_summary_per_date.append(summary)
+                users_summary[user.get_full_name()] = user_summary_per_date
+
             data = {'dates': date_strs, 'users_summary': users_summary}
             return Response({'data': data}, status=status.HTTP_200_OK)
 
-        except DatabaseError as e:
-            return Response({'message': 'Error de base de datos', 'detail': str(e)},
-                            status=status.HTTP_500_INTERNAL_SERVER_ERROR)
-
         except Exception as e:
-            return Response({'message': 'Error desconocido', 'detail': str(e)},
-                            status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+            return Response({'message': 'Error desconocido', 'detail': str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 
-def calculate_user_summary(attendances):
-    summary = {'worked_hours': timedelta(), 'delay_hours': timedelta(), 'overtime_hours': timedelta(),
-               'compensation_hours': timedelta(), }
-    for attendance in attendances:
-        summary['worked_hours'] += attendance.worked_hours or timedelta()
-        summary['delay_hours'] += timedelta(hours=attendance.delay_hours.hour,
-                                            minutes=attendance.delay_hours.minute) if attendance.delay_hours else timedelta()
-        summary['overtime_hours'] += sum_timedeltas(attendance.overtime_25_hours, attendance.overtime_35_hours)
-        summary['compensation_hours'] += sum_timedeltas(attendance.absenteeism_hours,
-                                                        attendance.absenteeism_hours_extra,
-                                                        condition=[attendance.absenteeism,
-                                                                   attendance.absenteeism_extra])
+def calculate_user_summary(attendance):
+    summary = {
+        'worked_hours': "00:00",
+        'delay_hours': "00:00",
+        'overtime_hours': "00:00",
+        'compensation_hours': "00:00",
+    }
 
-    for key, value in summary.items():
-        summary[key] = format_time(value)
+    # Suponiendo que attendance.worked_hours ya es un timedelta
+    if attendance.worked_hours:
+        summary['worked_hours'] = format_time(attendance.worked_hours)
+
+    # Asegúrate de convertir time a timedelta antes de formatear
+    if attendance.delay_hours:
+        delay_hours_td = time_to_timedelta(attendance.delay_hours)
+        summary['delay_hours'] = format_time(delay_hours_td)
+
+    # Convierte time a timedelta antes de sumar, si es necesario
+    if attendance.approved:
+        overtime_25_hours_td = time_to_timedelta(attendance.overtime_25_hours)
+        overtime_35_hours_td = time_to_timedelta(attendance.overtime_35_hours)
+        overtime_hours = sum_timedeltas(overtime_25_hours_td, overtime_35_hours_td)
+        summary['overtime_hours'] = format_time(overtime_hours)
+
+    # Similar para compensación
+    if attendance.absenteeism and attendance.absenteeism.name == 'Compensación':
+        absenteeism_hours_td = time_to_timedelta(attendance.absenteeism_hours)
+        summary['compensation_hours'] = format_time(absenteeism_hours_td)
+
+    if attendance.absenteeism_extra and attendance.absenteeism_extra.name == 'Compensación':
+        absenteeism_hours_extra_td = time_to_timedelta(attendance.absenteeism_hours_extra)
+        compensation_hours_extra = sum_timedeltas(absenteeism_hours_extra_td)
+        summary['compensation_hours'] = format_time(compensation_hours_extra)
 
     return summary
 
 
-def sum_timedeltas(*times, condition=None):
+def sum_timedeltas(*args):
+
     total = timedelta()
-    for time, cond in zip(times, condition or [None] * len(times)):
-        if time and (cond is None or cond):
-            total += timedelta(hours=time.hour, minutes=time.minute, seconds=time.second)
+    for arg in args:
+        if isinstance(arg, time):
+            arg_timedelta = timedelta(hours=arg.hour, minutes=arg.minute, seconds=arg.second)
+            total += arg_timedelta
+        elif isinstance(arg, timedelta):
+            total += arg
+        else:
+            pass
     return total
 
 
 def format_time(td):
     total_seconds = int(td.total_seconds())
     hours, remainder = divmod(total_seconds, 3600)
-    minutes, seconds = divmod(remainder, 60)
+    minutes, _ = divmod(remainder, 60)
     return '{:02d}:{:02d}'.format(hours, minutes)
 
 
 def time_to_timedelta(time_obj):
-    return timedelta(hours=time_obj.hour, minutes=time_obj.minute, seconds=time_obj.second)
+    if time_obj:
+        return timedelta(hours=time_obj.hour, minutes=time_obj.minute, seconds=time_obj.second)
+    else:
+        return timedelta()
+
+
+
+def format_duration(duration):
+    if not duration:
+        return "00:00:00"
+    total_seconds = int(duration.total_seconds())
+    hours = total_seconds // 3600
+    minutes = (total_seconds % 3600) // 60
+    return f"{hours:02}:{minutes:02}:00"
 
 
 class SummaryView(APIView):
@@ -327,53 +364,52 @@ class SummaryView(APIView):
             start_date = timezone.datetime.strptime(start_date_str, '%Y-%m-%d').date()
             end_date = timezone.datetime.strptime(end_date_str, '%Y-%m-%d').date()
 
-            users = Staff.objects.all()
+            users = Staff.objects.filter(Q(date_of_farewell__isnull=True) | Q(date_of_farewell__gte=start_date))
             if department_id:
                 users = users.filter(area_id=department_id)
             if user_query:
                 users = users.filter(full_name__icontains=user_query)
 
-            attendances = Tracking.objects.filter(date__range=[start_date, end_date]).select_related('staff',
-                                                                                                     'absenteeism')
+            attendances = Tracking.objects.filter(date__range=[start_date, end_date], staff__in=users).annotate(
+                is_inasistencia=Case(When(absenteeism__name__in=["Inasistencia", "Suspensión"], then=Value(1)),
+                                     default=Value(0), output_field=CharField(), ), is_descanso_semanal=Case(When(
+                    absenteeism__name__in=["Descanso semanal", "CONADIS", "Descanso feriado",
+                                           "Descanso colaborador mes"], then=Value(1)), default=Value(0),
+                    output_field=CharField(), ),
+                is_licencia_sin_gose_de_haber=Case(When(absenteeism__name="Licencia sin gose de haber", then=Value(1)),
+                                                   default=Value(0), output_field=CharField(), ),
+                is_vacaciones=Case(When(absenteeism__name="Vacaciones", then=Value(1)), default=Value(0),
+                                   output_field=CharField(), ),
+
+                is_descanso_medico=Case(When(absenteeism__name="Descanso médico", then=Value(1)), default=Value(0),
+                                        output_field=CharField(), ),
+                approved_overtime_25=Case(When(approved=True, then='overtime_25_hours'), default=Value('00:00:00'),
+                                          output_field=DurationField()),
+                approved_overtime_35=Case(When(approved=True, then='overtime_35_hours'), default=Value('00:00:00'),
+                                          output_field=DurationField()), ).values('staff_id').annotate(
+                total_days_worked=Count('id'), inasistencia_sum=Sum('is_inasistencia'),
+                descanso_semanal_sum=Sum('is_descanso_semanal'),
+                licencia_sin_gose_de_haber_sum=Sum('is_licencia_sin_gose_de_haber'),
+                vacaciones_sum=Sum('is_vacaciones'), descanso_medico_sum=Sum('is_descanso_medico'),
+                overtime_25_sum=Sum('approved_overtime_25', output_field=DurationField()),
+                overtime_35_sum=Sum('approved_overtime_35', output_field=DurationField()), total_worked_night=Sum(
+                    Case(When(is_day_shift=False, then=F('worked_hours')),
+                         default=ExpressionWrapper(Value(timedelta(seconds=0)), output_field=fields.DurationField()),
+                         output_field=fields.DurationField())))
 
             summary_data = []
-            for user in users:
-                if user.date_of_farewell and user.date_of_farewell < start_date:
-                    continue
-
-                user_attendances = attendances.filter(staff=user)
-
-                # Summarize the attendance data
-                user_summary = {"user": user.get_full_name(), "overtime_25": timedelta(0), "overtime_35": timedelta(0),
-                                "total_worked_night": timedelta(0), "total_days_worked": 0, "inasistencia": 0,
-                                "descanso_semanal": 0, "licencia_sin_gose_de_haber": 0, "vacaciones": 0,
-                                "descanso_medico": 0, }
-
-                for attendance in user_attendances:
-                    user_summary["total_days_worked"] += 1
-                    # Update counters based on the type of absenteeism
-                    absenteeism_name = attendance.absenteeism.name if attendance.absenteeism else ""
-                    user_summary["inasistencia"] += 1 if absenteeism_name in ["Inasistencia", "Suspensión"] else 0
-                    user_summary["descanso_semanal"] += 1 if absenteeism_name in ["Descanso semanal", "CONADIS",
-                                                                                  "Descanso feriado",
-                                                                                  "Descanso colaborador mes"] else 0
-                    user_summary[
-                        "licencia_sin_gose_de_haber"] += 1 if absenteeism_name == "Licencia sin gose de haber" else 0
-                    user_summary["vacaciones"] += 1 if absenteeism_name == "Vacaciones" else 0
-                    user_summary["descanso_medico"] += 1 if absenteeism_name == "Descanso médico" else 0
-
-                    # Calculate overtime and night work
-                    if attendance.approved:
-                        user_summary["overtime_25"] += time_to_timedelta(attendance.overtime_25_hours)
-                        user_summary["overtime_35"] += time_to_timedelta(attendance.overtime_35_hours)
-                    if not attendance.is_day_shift:
-                        user_summary["total_worked_night"] += attendance.worked_hours
-
-                # Convert timedeltas to strings
-                user_summary["overtime_25"] = str(user_summary["overtime_25"])
-                user_summary["overtime_35"] = str(user_summary["overtime_35"])
-                user_summary["total_worked_night"] = str(user_summary["total_worked_night"])
-
+            for attendance in attendances:
+                user = users.get(id=attendance['staff_id'])
+                user_summary = {"user": user.get_full_name(),
+                                "overtime_25": format_duration(attendance['overtime_25_sum']),
+                                "overtime_35": format_duration(attendance['overtime_35_sum']),
+                                "total_worked_night": format_duration(attendance['total_worked_night']),
+                                "total_days_worked": attendance['total_days_worked'],
+                                "inasistencia": attendance['inasistencia_sum'],
+                                "descanso_semanal": attendance['descanso_semanal_sum'],
+                                "licencia_sin_gose_de_haber": attendance['licencia_sin_gose_de_haber_sum'],
+                                "vacaciones": attendance['vacaciones_sum'],
+                                "descanso_medico": attendance['descanso_medico_sum'], }
                 summary_data.append(user_summary)
 
             return Response({"data": summary_data}, status=status.HTTP_200_OK)
@@ -389,124 +425,100 @@ class OutsourcingView(APIView):
             start_date_str = request.query_params.get('start_date')
             end_date_str = request.query_params.get('end_date')
 
+            if not start_date_str or not end_date_str:
+                return Response({"error": "Se requieren la fecha de inicio y la fecha de fin."},
+                                status=status.HTTP_400_BAD_REQUEST)
+
             start_date = timezone.datetime.strptime(start_date_str, '%Y-%m-%d').date()
             end_date = timezone.datetime.strptime(end_date_str, '%Y-%m-%d').date()
-            # Filtrar registros de asistencia dentro del rango de fechas
-            attendances = Tracking.objects.filter(date__range=[start_date, end_date])
 
-            users = Staff.objects.all()
+            users = Staff.objects.filter(
+                Q(date_of_farewell__isnull=True) | Q(date_of_farewell__gte=start_date)
+            ).prefetch_related('tracking_staff', 'position').order_by('name')
 
-            summary = []
+            summary_data = []
+
+            feriados_en_rango = Holiday.objects.filter(date__range=[start_date, end_date])
 
             for user in users:
-                if user.date_of_farewell and user.date_of_farewell < start_date:
-                    continue
+                user_attendances = Tracking.objects.filter(
+                    staff=user, date__range=[start_date, end_date]
+                ).select_related('absenteeism')
 
-                user_summary = {'user': user.get_full_name(), 'dni': user.dni, 'position': user.position.name,
-                                'out': user.date_of_farewell, 'overtime_25': timedelta(hours=0),
-                                'overtime_35': timedelta(hours=0), 'total_worked_night': timedelta(hours=0),
-                                'total_days_worked': 0, 'inasistencia': 0, 'descanso_semanal': 0,
-                                'licencia_sin_gose_de_haber': 0, 'vacaciones': 0, 'descanso_medico': 0, 'feriado': 0,
-                                'dias_inasistencia': [], 'dias_licencia_sin_gose_de_haber': [], 'dias_vacaciones': [],
-                                'dias_descanso_medico': [], 'dias_feriado': [], 'horas_feriado': timedelta(hours=0),
-                                'compensación_feriados': timedelta(hours=0)}
+                user_summary = {
+                    'user': user.get_full_name(),
+                    'dni': user.dni,
+                    'position': user.position.name if user.position else '',
+                    'out': user.date_of_farewell,
+                    'overtime_25': timedelta(0),
+                    'overtime_35': timedelta(0),
+                    'total_worked_night': timedelta(0),
+                    'total_days_worked': 0,
+                    'inasistencia': 0,
+                    'descanso_semanal': 0,
+                    'licencia_sin_gose_de_haber': 0,
+                    'vacaciones': 0,
+                    'descanso_medico': 0,
+                    'feriado': 0,
+                    'dias_inasistencia': [],
+                    'dias_licencia_sin_gose_de_haber': [],
+                    'dias_vacaciones': [],
+                    'dias_descanso_medico': [],
+                    'dias_feriado': [],
+                    'horas_feriado': timedelta(0),
+                    'compensación_feriados': timedelta(0),
+                }
 
-                for attendance in attendances.filter(staff=user):
-                    # if attendance.worked_hours and attendance.worked_hours.total_seconds() / 3600 > 1:
+                for attendance in user_attendances:
                     user_summary['total_days_worked'] += 1
 
                     if attendance.absenteeism:
-                        if attendance.absenteeism.name == 'Inasistencia' or attendance.absenteeism.name == 'Suspensión' or attendance.absenteeism.name == 'Descanso médico' or attendance.absenteeism.name == 'Licencia sin gose de haber' or attendance.absenteeism.name == 'Vacaciones' or attendance.absenteeism.name == 'CONADIS' or attendance.absenteeism.name == 'Descanso feriado' or attendance.absenteeism.name == 'Descanso colaborador mes' or attendance.absenteeism.name == 'Descanso semanal':
-                            # if attendance.worked_hours and attendance.worked_hours.total_seconds() / 3600 > 1:
-                            user_summary['total_days_worked'] -= 1
-                    if attendance.absenteeism:
-                        if attendance.absenteeism and attendance.absenteeism.name == 'Inasistencia' or attendance.absenteeism.name == 'Suspensión':
-                            user_summary['dias_inasistencia'] += [attendance.date.strftime('%d/%m')]
+                        format_date = attendance.date.strftime('%d/%m')
+                        if attendance.absenteeism.name == 'Inasistencia' or attendance.absenteeism.name == 'Suspensión':
+                            user_summary['dias_inasistencia'].append(format_date)
                             user_summary['inasistencia'] += 1
-                        if attendance.absenteeism and attendance.absenteeism.name == 'Descanso semanal':
-                            user_summary['descanso_semanal'] += 1
-
-                        if attendance.absenteeism and attendance.absenteeism.name == 'CONADIS':
-                            user_summary['descanso_semanal'] += 1
-
-                        if attendance.absenteeism and attendance.absenteeism.name == 'Descanso feriado':
-                            user_summary['descanso_semanal'] += 1
-
-                        if attendance.absenteeism and attendance.absenteeism.name == 'Descanso colaborador mes':
-                            user_summary['descanso_semanal'] += 1
-
-                        if attendance.absenteeism and attendance.absenteeism.name == 'Licencia sin gose de haber':
-                            user_summary['dias_licencia_sin_gose_de_haber'] += [attendance.date.strftime('%d/%m')]
-                            user_summary['licencia_sin_gose_de_haber'] += 1
-                        if attendance.absenteeism and attendance.absenteeism.name == 'Descanso médico':
-                            user_summary['dias_descanso_medico'] += [attendance.date.strftime('%d/%m')]
-                            user_summary['descanso_medico'] += 1
-                        if attendance.absenteeism and attendance.absenteeism.name == 'Vacaciones':
-                            user_summary['dias_vacaciones'] += [attendance.date.strftime('%d/%m')]
-                            user_summary['vacaciones'] += 1
-
-                        if attendance.absenteeism and attendance.absenteeism.name == 'Compensación feriados':
-                            user_summary['compensación_feriados'] = timedelta(hours=0)
-                            user_summary['compensación_feriados'] += timedelta(hours=attendance.absenteeism_hours.hour,
-                                                                               minutes=attendance.absenteeism_hours.minute,
-                                                                               seconds=attendance.absenteeism_hours.second)
                             user_summary['total_days_worked'] -= 1
-
-                            total_compensation_holiday_seconds = user_summary['compensación_feriados'].total_seconds()
-                            total_compensation_holiday_hours = int(total_compensation_holiday_seconds // 3600)
-                            total_compensation_holiday_minutes = int((total_compensation_holiday_seconds // 60) % 60)
-                            user_summary[
-                                'compensación_feriados'] = f"{int(total_compensation_holiday_hours):02d}:{int(total_compensation_holiday_minutes):02d}"
-
-                    holiday = Holiday.objects.filter(date=attendance.date).first()
-                    if holiday:
-                        if attendance.check_in and attendance.check_out:
-                            if attendance.worked_hours and attendance.worked_hours.total_seconds() / 3600 > 1:
-                                user_summary['dias_feriado'] += [attendance.date.strftime('%d/%m')]
-                                user_summary['feriado'] += 1
-                                user_summary['horas_feriado'] += attendance.worked_hours
-
-                                total_worked_holiday_seconds = user_summary['horas_feriado'].total_seconds()
-                                total_worked_holiday_hours = int(total_worked_holiday_seconds // 3600)
-                                total_worked_holiday_minutes = int((total_worked_holiday_seconds // 60) % 60)
-                                user_summary[
-                                    'horas_feriado'] = f"{total_worked_holiday_hours:02d}:{total_worked_holiday_minutes:02d}"
-
+                        if attendance.absenteeism.name == 'Descanso semanal' or attendance.absenteeism.name == 'CONADIS' or attendance.absenteeism.name == 'Descanso feriado' or attendance.absenteeism.name == 'Descanso colaborador mes':
+                            user_summary['descanso_semanal'] += 1
+                            user_summary['total_days_worked'] -= 1
+                        if attendance.absenteeism.name == 'Licencia sin gose de haber':
+                            user_summary['dias_licencia_sin_gose_de_haber'].append(format_date)
+                            user_summary['licencia_sin_gose_de_haber'] += 1
+                            user_summary['total_days_worked'] -= 1
+                        if attendance.absenteeism.name == 'Descanso médico':
+                            user_summary['dias_descanso_medico'].append(format_date)
+                            user_summary['descanso_medico'] += 1
+                            user_summary['total_days_worked'] -= 1
+                        if attendance.absenteeism.name == 'Vacaciones':
+                            user_summary['dias_vacaciones'].append(format_date)
+                            user_summary['vacaciones'] += 1
+                            user_summary['total_days_worked'] -= 1
+                        if attendance.absenteeism.name == 'Compensación feriados':
+                            user_summary['compensación_feriados'] += timedelta(hours=attendance.absenteeism_hours.hour,
+                                                                                minutes=attendance.absenteeism_hours.minute) if attendance.absenteeism_hours else timedelta(0)
+                            user_summary['total_days_worked'] -= 1
                     if attendance.approved:
                         user_summary['overtime_25'] += timedelta(hours=attendance.overtime_25_hours.hour,
-                                                                 minutes=attendance.overtime_25_hours.minute,
-                                                                 seconds=attendance.overtime_25_hours.second)
-
+                                                                        minutes=attendance.overtime_25_hours.minute) if attendance.overtime_25_hours else timedelta(0)
                         user_summary['overtime_35'] += timedelta(hours=attendance.overtime_35_hours.hour,
-                                                                 minutes=attendance.overtime_35_hours.minute,
-                                                                 seconds=attendance.overtime_35_hours.second)
+                                                                        minutes=attendance.overtime_35_hours.minute) if attendance.overtime_35_hours else timedelta(0)
+                    es_feriado = feriados_en_rango.filter(date=attendance.date).exists()
+                    if es_feriado:
+                        user_summary['dias_feriado'].append(format_date)
+                        user_summary['feriado'] += 1
+                        user_summary['horas_feriado'] += attendance.worked_hours
 
-                    user_summary[
-                        'total_worked_night'] += attendance.worked_hours if not attendance.is_day_shift else timedelta(
-                        hours=0)
+                    user_summary['total_worked_night'] += attendance.worked_hours if not attendance.is_day_shift else timedelta(
+                    hours=0)
 
-                # Formatear las duraciones de tiempo en hh:mm
-                # Convertir la duración total a formato "hh:mm:ss" para overtime_35
-                total_seconds_35 = int(user_summary['overtime_35'].total_seconds())
-                hours_35, remainder_35 = divmod(total_seconds_35, 3600)
-                minutes_35, seconds_35 = divmod(remainder_35, 60)
-                result_time_35 = "{:02d}:{:02d}:{:02d}".format(hours_35, minutes_35, seconds_35)
-                user_summary['overtime_35'] = result_time_35
+                user_summary['overtime_25'] = format_duration(user_summary['overtime_25'])
+                user_summary['overtime_35'] = format_duration(user_summary['overtime_35'])
+                user_summary['horas_feriado'] = format_duration(user_summary['horas_feriado'])
+                user_summary['compensación_feriados'] = format_duration(user_summary['compensación_feriados'])
+                user_summary['total_worked_night'] = format_duration(user_summary['total_worked_night'])
+                summary_data.append(user_summary)
 
-                # Convertir la duración total a formato "hh:mm:ss" para overtime_25
-                total_seconds_25 = int(user_summary['overtime_25'].total_seconds())
-                hours_25, remainder_25 = divmod(total_seconds_25, 3600)
-                minutes_25, seconds_25 = divmod(remainder_25, 60)
-                result_time_25 = "{:02d}:{:02d}:{:02d}".format(hours_25, minutes_25, seconds_25)
-                user_summary['overtime_25'] = result_time_25
-                total_worked_night_seconds = user_summary['total_worked_night'].total_seconds()
-                total_worked_night_hours = int(total_worked_night_seconds // 3600)
-                total_worked_night_minutes = int((total_worked_night_seconds // 60) % 60)
-                user_summary['total_worked_night'] = f"{total_worked_night_hours:02d}:{total_worked_night_minutes:02d}"
-
-                summary.append(user_summary)
-
-            return Response({'data': summary}, status=status.HTTP_200_OK)
+            return Response({'data': summary_data}, status=status.HTTP_200_OK)
         except DatabaseError as e:
             error_message = 'No se puede procesar su solicitud debido a un error de base de datos. Por favor, inténtelo de nuevo más tarde.'
             return Response({'message': error_message, 'detail': str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)

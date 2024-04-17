@@ -348,7 +348,7 @@ class Chlorine(models.Model):
     dosage_2 = models.IntegerField(verbose_name='Dosificación 2', blank=True, null=True, default=0)
     hardness = models.IntegerField(verbose_name='Dureza', blank=True, null=True, default=0)
     ppm = models.PositiveSmallIntegerField(verbose_name='PPM', blank=True, null=True, default=0)
-    clean = models.BooleanField(verbose_name='Limpieza', default=False)
+    cleaned = models.BooleanField(verbose_name='Limpieza', default=False)
     level_1 = models.IntegerField(verbose_name='Nivel 1', blank=True, null=True, default=0)
     level_2 = models.IntegerField(verbose_name='Nivel 2', blank=True, null=True, default=0)
     technical = models.ForeignKey(User, on_delete=models.PROTECT, verbose_name='Técnico', blank=True, null=True)
@@ -357,6 +357,7 @@ class Chlorine(models.Model):
         return self.date.strftime('%d/%m/%Y')
 
     def save(self, force_insert=False, force_update=False, using=None, update_fields=None):
-        self.hour = self.hour or timezone.now()
+        if not self.hour:
+            self.hour = timezone.now()
         super().save(force_insert, force_update, using, update_fields)
 
