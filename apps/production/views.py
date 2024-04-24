@@ -33,7 +33,7 @@ class ConditioningBaseListView(APIView):
         week = request.query_params.get('week')
         queryset = self.model.objects.filter(date__year=year)
         if lot:
-            queryset = queryset.filter(lot__lot=lot)
+            queryset = queryset.filter(lot__lot__icontains=lot)
         if month and month.isdigit() and 1 <= int(month) <= 12:
             queryset = queryset.filter(date__month=month)
         else:
@@ -167,14 +167,14 @@ class PackingListView(APIView):
         product = request.query_params.get('type')
         queryset = self.model.objects.filter(Q(date_production__year=year) & Q(lot__product__name=product))
         if lot:
-            queryset = queryset.filter(lot__lot=lot)
+            queryset = queryset.filter(lot__lot__icontains=lot)
         if month and month.isdigit() and 1 <= int(month) <= 12:
             queryset = queryset.filter(date_production__month=month)
         else:
             if week and week.isdigit() and 1 <= int(week) <= 52:
                 queryset = queryset.filter(date_production__week=week)
             else:
-                queryset = queryset.order_by('-date')[0:50]
+                queryset = queryset.order_by('-date_production')[0:50]
         serializer = self.serializer_class(queryset, many=True)
         return Response({'data': serializer.data}, status=status.HTTP_200_OK)
 
