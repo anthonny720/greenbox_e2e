@@ -178,8 +178,6 @@ class Lot(models.Model):
         freight = Decimal(self.freight or 0)
         download_price = Decimal(self.download_price or 0)
         freight_boxes = Decimal(self.freight_boxes or 0)
-        detraction = Decimal(0.04) * freight_boxes
-        freight_boxes -= detraction
 
         # Ahora, todos los cálculos se realizan con Decimal, evitando el error
         total_amount = supplier_price * first_kg + freight + download_price + freight_boxes + discount_price

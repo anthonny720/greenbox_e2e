@@ -1,8 +1,8 @@
 from django.contrib import admin
 from import_export.admin import ImportExportModelAdmin
 
-from .models import ExternalPeople, Lot, DownloadLot, ItemsLot, Boxes, Pallets, Output, Material, \
-    ItemsReceipt, ItemsIssue, Freight, GLP, Files
+from .models import (ExternalPeople, Lot, DownloadLot, ItemsLot, Boxes, Pallets, Output, Material, ItemsReceipt,
+                     ItemsIssue, Freight, GLP, Files, )
 
 
 # Register your models here.
@@ -16,8 +16,11 @@ class ExternalPeopleAdmin(ImportExportModelAdmin):
 
 @admin.register(Lot)
 class LotAdmin(ImportExportModelAdmin):
-    list_display = ('lot', 'product', 'supplier', 'manufacturing', 'datetime_arrival', 'condition', 'stock',)
+    list_display = (
+    'lot', 'product', 'discount_price_kg', 'discount_price', 'supplier_price', 'supplier', 'manufacturing',
+    'datetime_arrival', 'condition', 'stock',)
     search_fields = ('lot',)
+    list_editable = ('discount_price_kg', 'discount_price', 'supplier_price',)
     list_filter = ('product', 'supplier', 'manufacturing', 'condition',)
     ordering = ['-datetime_arrival']
     list_per_page = 25

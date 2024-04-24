@@ -1,8 +1,9 @@
+from apps.category.models import Category
 from apps.stakeholders.models import RawMaterialSupplier
 from django.db import models
 from simple_history.models import HistoricalRecords
 
-from apps.category.models import Category
+from apps.stakeholders.models import ManufacturingCompany
 
 
 # Create your models here.
@@ -32,3 +33,19 @@ class Parcel(models.Model):
 
     def __str__(self):
         return self.name
+
+
+class Projection(models.Model):
+    date = models.DateField(verbose_name='Fecha')
+    product = models.ForeignKey(Category, on_delete=models.PROTECT, verbose_name='Producto', blank=False, null=False)
+    quantity = models.DecimalField(max_digits=10, decimal_places=2, verbose_name='Cantidad', blank=False, null=False)
+    company = models.ForeignKey(ManufacturingCompany, on_delete=models.PROTECT, verbose_name='Empresa', blank=False, )
+
+    class Meta:
+        verbose_name = 'Proyección'
+        verbose_name_plural = 'Proyecciones'
+        ordering = ['date']
+        unique_together = ('date', 'product', 'company',)
+
+    def __str__(self):
+        return self.product.name
