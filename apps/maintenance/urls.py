@@ -5,7 +5,8 @@ from .views import (ListTreeView, FixedAssetListAPIView, FixedAssetDetailAPIView
                     RequirementsListAPIView, RequirementsDetailAPIView, WorkOrderListView, WorkOrderDetailView,
                     UpdateWorkSupervisorView, UpdateWorkRequesterView, AddResourcesOTView, DeleteResourceOTView,
                     AddHelpersOTView, DeleteHelperOTView, ListTechnicalView, H2OListAPIView, H2ODetailAPIView,
-                    ChlorineListAPIView,ChlorineDetailAPIView)
+                    ChlorineListAPIView, ChlorineDetailAPIView, ListOtherUsers, ResourceItemDetailView,
+                    HelpersDetailView)
 
 urlpatterns = [path('tree/', ListTreeView.as_view(), name='tree'),
                path('fixed-assets/', FixedAssetListAPIView.as_view(), name='fixed-assets'),
@@ -26,13 +27,16 @@ urlpatterns = [path('tree/', ListTreeView.as_view(), name='tree'),
                path('work-orders/<str:pk>/', WorkOrderDetailView.as_view(), name='work-order-detail'),
 
                path('work-orders/<str:pk>/add-resources/', AddResourcesOTView.as_view(), name='add-resources'),
-                path('work-orders/delete-resources/<str:pk>/', DeleteResourceOTView.as_view(), name='delete-resources'),
-                path('work-orders/<str:pk>/add-helpers/', AddHelpersOTView.as_view(), name='add-helpers'),
-                path('work-orders/delete-helpers/<str:pk>/', DeleteHelperOTView.as_view(), name='delete-helpers'),
-                path('technical/', ListTechnicalView.as_view(), name='technical'),
-                path('h2o/', H2OListAPIView.as_view(), name='h2o'),
-                path('h2o/<str:pk>/', H2ODetailAPIView.as_view(), name='h2o-detail'),
-                path('chlorine/', ChlorineListAPIView.as_view(), name='chlorine'),
-                path('chlorine/<str:pk>/', ChlorineDetailAPIView.as_view(), name='chlorine-detail')
+               path('work-orders/delete-resources/<str:pk>/', DeleteResourceOTView.as_view(), name='delete-resources'),
+               path('work-orders/<str:pk>/add-helpers/', AddHelpersOTView.as_view(), name='add-helpers'),
+               path('work-orders/delete-helpers/<str:pk>/', DeleteHelperOTView.as_view(), name='delete-helpers'),
+               path('technical/', ListTechnicalView.as_view(), name='technical'),
+               path('users/', ListOtherUsers.as_view(), name='users'),
+               path('h2o/', H2OListAPIView.as_view(), name='h2o'),
+               path('h2o/<str:pk>/', H2ODetailAPIView.as_view(), name='h2o-detail'),
+               path('chlorine/', ChlorineListAPIView.as_view(), name='chlorine'),
+               path('chlorine/<str:pk>/', ChlorineDetailAPIView.as_view(), name='chlorine-detail'),
+               path('work-orders/<str:pk>/resources/', ResourceItemDetailView.as_view(), name='resourcers-list'),
+               path('work-orders/<str:pk>/helpers/', HelpersDetailView.as_view(), name='helpers-list')
 
                ]

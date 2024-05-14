@@ -3,7 +3,7 @@ from django.contrib import admin
 from import_export.admin import ImportExportModelAdmin
 from simple_history.admin import SimpleHistoryAdmin
 
-from backend.apps.agrisupply.models import Projection
+from apps.agrisupply.models import Projection
 
 
 # Register your models here.

@@ -10,7 +10,7 @@ from .models import (FixedAsset, PhysicalAsset, Tool, Failure, Type, Requirement
                      H2O, Chlorine, )
 from .serializers import (FixedAssetSerializer, PhysicalAssetSerializer, ToolsSerializer, FailureSerializer,
                           TypeSerializer, RequirementsSerializer, WorkOrderSerializer, H2OSerializer,
-                          ChlorineSerializer, )
+                          ChlorineSerializer, ResourceItemSerializer, HelperItemSerializer, )
 
 User = get_user_model()
 
@@ -45,7 +45,7 @@ class AbstractListAPIView(APIView):
             items = self.model.objects.filter(name__icontains=name)
             serializer = self.serializer_class(items, many=True)
             return Response({'data': serializer.data}, status=status.HTTP_200_OK)
-        items = self.model.objects.all()[0:50]
+        items = self.model.objects.all()
         serializer = self.serializer_class(items, many=True)
         return Response({'data': serializer.data}, status=status.HTTP_200_OK)
 
@@ -233,6 +233,7 @@ class WorkOrderListView(APIView):
             year = request.query_params.get('year')
             week = request.query_params.get('week')
             queryset = queryset.filter(date_start__year=year)
+            planned = request.query_params.get('planned')
             if user_id:
                 user = get_object_or_404(User, pk=user_id)
                 queryset = queryset.filter(Q(technical=user) | Q(helpers=user)).distinct()
@@ -243,6 +244,10 @@ class WorkOrderListView(APIView):
                 queryset = queryset.filter(asset__id=physical_id)
             if month and month.isdigit() and 1 <= int(month) <= 12:
                 queryset = queryset.filter(date_start__month=month)
+            if planned == 'true':
+                queryset = queryset.filter(planned=True)
+            if planned == 'false':
+                queryset = queryset.filter(planned=False)
             else:
                 if week and week.isdigit() and 1 <= int(week) <= 52:
                     queryset = queryset.filter(date_start__week=week)
@@ -255,20 +260,26 @@ class WorkOrderListView(APIView):
                             status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
     def post(self, request):
-        user = request.user
-        if user.position.name in ['Planner de mantenimiento', 'Jefe de mantenimiento'] and 'technical' in request.data:
-            technical_id = request.data.get('technical')
-            if not User.objects.filter(pk=technical_id).exists():
-                return Response({'error': 'Technical user does not exist'}, status=status.HTTP_404_NOT_FOUND)
-        else:
-            request.data['technical'] = user.id
-            serializer = self.serializer_class(data=request.data)
-            if serializer.is_valid():
-                serializer.save()
-                return Response({'message': 'OT creada exitosamente'}, status=status.HTTP_201_CREATED)
+        try:
+            user = request.user
+            if user.position.name in ['Planner de mantenimiento',
+                                      'Jefe de mantenimiento'] and 'technical' in request.data:
+                technical_id = request.data.get('technical')
+                if not User.objects.filter(pk=technical_id).exists():
+                    return Response({'error': 'Technical user does not exist'}, status=status.HTTP_404_NOT_FOUND)
             else:
-                errors = '; '.join(['{}: {}'.format(key, ' '.join(value)) for key, value in serializer.errors.items()])
-                return Response({'error': 'Error de validación: ' + errors}, status=status.HTTP_400_BAD_REQUEST)
+                request.data['technical'] = user.id
+                serializer = self.serializer_class(data=request.data)
+                if serializer.is_valid():
+                    serializer.save()
+                    return Response({'message': 'OT creada exitosamente'}, status=status.HTTP_201_CREATED)
+                else:
+                    errors = '; '.join(
+                        ['{}: {}'.format(key, ' '.join(value)) for key, value in serializer.errors.items()])
+                    return Response({'error': 'Error de validación: ' + errors}, status=status.HTTP_400_BAD_REQUEST)
+        except Exception as e:
+            return Response({'error': 'Error al crear la OT', 'detail': str(e)},
+                            status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 
 class WorkOrderDetailView(APIView):
@@ -434,8 +445,45 @@ class DeleteHelperOTView(APIView):
 class ListTechnicalView(APIView):
     def get(self, request):
         users = User.objects.filter(position__name='Técnico de mantenimiento')
-        data = [{'id': user.id, 'name': user.get_full_name(), 'active': user.is_active} for user in users]
+        data = [{'id': user.id, 'name': user.get_full_name(), 'active': user.is_active,
+                 'salary': user.position.salary if user.position else 0, 'signature': user.get_signature_url()} for user
+                in users]
         return Response({'data': data}, status=status.HTTP_200_OK)
+
+
+class ListOtherUsers(APIView):
+    def get(self, request):
+        users = User.objects.all()
+        data = [{'id': user.id, 'name': user.get_full_name(), 'active': user.is_active,
+                 'position': user.position.name if user.position else '', 'signature': user.get_signature_url()} for
+                user in users]
+        return Response({'data': data}, status=status.HTTP_200_OK)
+
+
+class ResourceItemDetailView(APIView):
+    model = ResourceItem
+    serializer_class = ResourceItemSerializer
+
+    def get(self, request, pk):
+        try:
+            items = self.model.objects.filter(work_order=pk)
+        except self.model.DoesNotExist:
+            return Response({'error': 'Recurso no encontrado.'}, status=status.HTTP_404_NOT_FOUND)
+        serializer = self.serializer_class(items, many=True)
+        return Response({'data': serializer.data}, status=status.HTTP_200_OK)
+
+
+class HelpersDetailView(APIView):
+    model = HelperItem
+    serializer_class = HelperItemSerializer
+
+    def get(self, request, pk):
+        try:
+            items = self.model.objects.filter(work_order=pk)
+        except self.model.DoesNotExist:
+            return Response({'error': 'Ayudante no encontrado.'}, status=status.HTTP_404_NOT_FOUND)
+        serializer = self.serializer_class(items, many=True)
+        return Response({'data': serializer.data}, status=status.HTTP_200_OK)
 
 
 class H2OListAPIView(APIView):

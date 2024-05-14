@@ -31,9 +31,10 @@ class PositionSerializer(serializers.ModelSerializer):
 
 
 class HelperSerializer(serializers.ModelSerializer):
+    salary = serializers.CharField(source='position.salary', read_only=True)
     class Meta:
         model = User
-        fields = ('id', 'get_full_name', 'get_signature_url', 'first_name', 'last_name')
+        fields = ('id', 'get_full_name', 'get_signature_url', 'first_name', 'last_name','salary',)
 
 class DepartmentWithChildrenSerializer(serializers.ModelSerializer):
     children = serializers.SerializerMethodField()

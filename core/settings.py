@@ -20,7 +20,7 @@ SITE_NAME = ('Greenbox')
 TOKEN_RENIEC = env('TOKEN_RENIEC')
 
 # SECURITY WARNING: don't run with debug turned on in production!
-DEBUG = False
+DEBUG = True
 
 ALLOWED_HOSTS = env.list('ALLOWED_HOSTS_DEV')
 
@@ -90,10 +90,10 @@ WSGI_APPLICATION = 'core.wsgi.application'
 #     }
 # }
 
-# DATABASES = {'default': {'ENGINE': 'django.db.backends.postgresql_psycopg2', 'NAME': 'backend', 'USER': 'postgres',
-#                          'PASSWORD': 'postgres', 'HOST': 'db', 'PORT': '5432', }}
+DATABASES = {'default': {'ENGINE': 'django.db.backends.postgresql_psycopg2', 'NAME': 'backend', 'USER': 'postgres',
+                         'PASSWORD': 'postgres', 'HOST': 'db', 'PORT': '5432', }}
 
-DATABASES = {'default': env.db('DATABASE_URL', default='postgres:///e2e_db')}
+# DATABASES = {'default': env.db('DATABASE_URL', default='postgres:///e2e_db')}
 DATABASES['default']['ATOMIC_REQUESTS'] = True
 
 # CACHES = {'default': {'BACKEND': 'django_redis.cache.RedisCache', 'LOCATION': 'redis://redis_auth:6379',
@@ -106,7 +106,6 @@ PASSWORD_HASHERS = ['django.contrib.auth.hashers.Argon2PasswordHasher',
                     'django.contrib.auth.hashers.PBKDF2PasswordHasher',
                     'django.contrib.auth.hashers.PBKDF2SHA1PasswordHasher',
                     'django.contrib.auth.hashers.BCryptSHA256PasswordHasher',
-
                     ]
 
 AUTH_PASSWORD_VALIDATORS = [{'NAME': 'django.contrib.auth.password_validation.UserAttributeSimilarityValidator', },
@@ -165,7 +164,7 @@ DJOSER = {'LOGIN_FIELD': 'email', 'PASSWORD_RESET_CONFIRM_URL': 'password/reset/
 FILE_UPLOAD_PERMISSIONS = 0o644
 
 EMAIL_BACKEND = 'django.core.mail.backends.smtp.EmailBackend'
-SECURE_SSL_REDIRECT = True
+# SECURE_SSL_REDIRECT = False
 
 # SMTP.com configuration
 EMAIL_HOST = env('EMAIL_HOST')

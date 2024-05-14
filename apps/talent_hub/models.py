@@ -147,11 +147,7 @@ class Tracking(models.Model):
                     self.delay_hours = '00:{:02d}:00'.format(minute)
         except:
             pass
-        if self.check_in:
-            if 5 <= self.check_in.hour < 18:
-                self.is_day_shift = True
-            else:
-                self.is_day_shift = False
+
 
         if self.lunch_end:
             self.real_lunch_end = self.lunch_end
@@ -197,6 +193,12 @@ class Tracking(models.Model):
             self.worked_hours = self.worked_hours - timedelta(microseconds=self.worked_hours.microseconds)
         except:
             pass
+
+        if self.check_in:
+            if 5 <= self.check_in.hour < 18:
+                self.is_day_shift = True
+            else:
+                self.is_day_shift = False
 
         super().save(force_insert, force_update, using, update_fields)
 
