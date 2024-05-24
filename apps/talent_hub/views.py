@@ -1,4 +1,5 @@
 from datetime import datetime, timedelta, date, time
+from dateutil.relativedelta import relativedelta
 
 import requests
 from apps.user.models import Departments
@@ -246,6 +247,7 @@ class CalendarView(APIView):
                 staff_filter &= Q(area__id=department_id)
             if user_query:
                 staff_filter &= Q(full_name__icontains=user_query)
+                staff_filter &= Q(status=True, trusted=False)
 
             users = Staff.objects.filter(staff_filter).order_by('name')
 
@@ -638,7 +640,7 @@ class ScannerTrackingView(APIView):
                                     last_tracking.save()
             if category == 'check_in':
                 if not tracking_exists:
-                    tracking = Tracking(staff=user, check_in=timezone.now())
+                    tracking = Tracking(staff=user, check_in=datetime.now())
                     tracking.save()
                     serializer = TrackingSerializer(tracking, many=False)
                     return Response({'message': 'Se ha registrado la marcación del usuario', 'data': serializer.data},
@@ -705,3 +707,52 @@ class DepartmentListView(APIView):
         queryset = self.model.objects.all()
         serializer = self.serializer_class(queryset, many=True)
         return Response({'data': serializer.data}, status=status.HTTP_200_OK)
+
+
+
+class DelayListView(APIView):
+    def get(self, request, *args, **kwargs):
+        try:
+            start_date_str = request.query_params.get('start_date')
+            department_id = request.query_params.get('department')
+            user_query = request.query_params.get('user')
+
+            if not start_date_str:
+                return Response({"error": "Se requieren la fecha de inicio"},
+                                status=status.HTTP_400_BAD_REQUEST)
+
+            start_date = timezone.datetime.strptime(start_date_str, '%Y-%m-%d').date()
+            end_date = start_date + relativedelta(months=2, day=23)
+
+            start_date_str = start_date.strftime('%d/%m/%Y')
+            end_date_str = end_date.strftime('%d/%m/%Y')
+
+            # Filtrar usuarios activos o con fecha de despedida posterior al inicio del rango
+            users = Staff.objects.filter(Q(date_of_farewell__isnull=True) | Q(date_of_farewell__gte=start_date))
+            if department_id:
+                users = users.filter(area_id=department_id)
+            if user_query:
+                users = users.filter(full_name__icontains=user_query)
+
+            # Filtrar asistencias y agregar las horas de tardanza
+            attendances = Tracking.objects.filter(date__range=[start_date, end_date], staff__in=users) .values('staff__full_name') .annotate(total_delay=Sum('delay_hours')).order_by('staff__full_name')
+
+            # Preparar los datos de salida
+            summary_data = []
+            for attendance in attendances:
+                total_delay = attendance['total_delay']
+                # Convertir el timedelta a total de segundos
+                total_seconds = int(total_delay.total_seconds())
+                # Calcular horas, minutos y segundos
+                hours = total_seconds // 3600
+                minutes = (total_seconds % 3600) // 60
+                seconds = total_seconds % 60
+
+                # Formatear la salida como hh:mm:ss
+                formatted_delay = f"{hours}:{minutes:02}:{seconds:02}"
+                summary_data.append({'user': attendance['staff__full_name'], 'total_delay': formatted_delay,'start_date': start_date_str,'end_date': end_date_str})
+
+            return Response({"data": summary_data}, status=status.HTTP_200_OK)
+
+        except Exception as e:
+            return Response({"error": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)

@@ -225,29 +225,28 @@ class WorkOrderListView(APIView):
     def get(self, request):
         try:
 
-            queryset = self.model.objects.all().order_by('-date_start')
             user_id = request.query_params.get('user')
             type_maintenance_id = request.query_params.get('type_')
             physical_id = request.query_params.get('equipment')
             month = request.query_params.get('month')
             year = request.query_params.get('year')
             week = request.query_params.get('week')
-            queryset = queryset.filter(date_start__year=year)
+            queryset = self.model.objects.filter(date_start__year=year).order_by('-date_start')
             planned = request.query_params.get('planned')
+            if planned == 'true':
+                queryset = queryset.filter(planned=True)
+            if planned == 'false':
+                queryset = queryset.filter(planned=False)
             if user_id:
                 user = get_object_or_404(User, pk=user_id)
                 queryset = queryset.filter(Q(technical=user) | Q(helpers=user)).distinct()
-
             if type_maintenance_id:
                 queryset = queryset.filter(type_maintenance__id=type_maintenance_id)
             if physical_id:
                 queryset = queryset.filter(asset__id=physical_id)
             if month and month.isdigit() and 1 <= int(month) <= 12:
                 queryset = queryset.filter(date_start__month=month)
-            if planned == 'true':
-                queryset = queryset.filter(planned=True)
-            if planned == 'false':
-                queryset = queryset.filter(planned=False)
+
             else:
                 if week and week.isdigit() and 1 <= int(week) <= 52:
                     queryset = queryset.filter(date_start__week=week)

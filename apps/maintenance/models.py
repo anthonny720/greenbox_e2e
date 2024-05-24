@@ -1,11 +1,8 @@
 import datetime
-import decimal
 import uuid
 
-from apps.logistic.models import Material
 from django.contrib.auth import get_user_model
 from django.db import models
-from django.db.models import Sum
 from django.utils import timezone
 from simple_history.models import HistoricalRecords
 
@@ -193,8 +190,6 @@ class WorkOrder(models.Model):
         return self.date_finish - self.date_start if self.date_finish and self.date_start else None
 
 
-
-
 class HelperItem(models.Model):
     work_order = models.ForeignKey(WorkOrder, on_delete=models.PROTECT, verbose_name='Orden de trabajo',
                                    related_name='helpers_order')
@@ -221,6 +216,7 @@ class ResourceItem(models.Model):
                                    related_name='resources_order')
     article = models.CharField(max_length=100, verbose_name='Artículo', blank=True, null=True)
     quantity = models.PositiveIntegerField(verbose_name='Cantidad', default=1)
+
     class Meta:
         verbose_name = 'Recurso'
         verbose_name_plural = 'Recursos'
@@ -228,8 +224,6 @@ class ResourceItem(models.Model):
 
     def __str__(self):
         return self.article if self.article else ''
-
-
 
 
 class H2O(models.Model):
@@ -269,7 +263,7 @@ class Chlorine(models.Model):
 
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     date = models.DateField(verbose_name='Fecha', default=timezone.now, blank=True, null=True)
-    hour = models.TimeField(verbose_name='Hora',  blank=True, null=True)
+    hour = models.TimeField(verbose_name='Hora', blank=True, null=True)
     dosage_1 = models.IntegerField(verbose_name='Dosificación 1', blank=True, null=True, default=0)
     dosage_2 = models.IntegerField(verbose_name='Dosificación 2', blank=True, null=True, default=0)
     hardness = models.IntegerField(verbose_name='Dureza', blank=True, null=True, default=0)
@@ -286,4 +280,3 @@ class Chlorine(models.Model):
         if not self.hour:
             self.hour = timezone.now()
         super().save(force_insert, force_update, using, update_fields)
-

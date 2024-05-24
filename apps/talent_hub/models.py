@@ -162,8 +162,7 @@ class Tracking(models.Model):
                 time_worked -= lunch_time
             self.worked_hours = time_worked
 
-        if self.check_in:
-            self.date = self.check_in.date()
+
 
         if self.absenteeism and self.absenteeism_hours:
             absenteeism_seconds = (
@@ -195,10 +194,15 @@ class Tracking(models.Model):
             pass
 
         if self.check_in:
+            self.date = self.check_in.date()
+
+        try:
             if 5 <= self.check_in.hour < 18:
                 self.is_day_shift = True
             else:
                 self.is_day_shift = False
+        except:
+            pass
 
         super().save(force_insert, force_update, using, update_fields)
 
