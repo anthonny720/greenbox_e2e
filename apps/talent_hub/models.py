@@ -3,7 +3,7 @@ from datetime import timedelta, datetime, time
 from django.db import models
 from simple_history.models import HistoricalRecords
 from apps.user.models import Departments, Position
-from django.db.models.signals import pre_save, post_delete
+from django.db.models.signals import pre_save, post_delete, post_save
 from django.dispatch import receiver
 
 def get_upload_to(instance, filename):
@@ -206,6 +206,24 @@ class Tracking(models.Model):
 
         super().save(force_insert, force_update, using, update_fields)
 
+
+@receiver(post_save, sender=Tracking)
+def post_save_tracking(sender, instance, **kwargs):
+    if not instance.id:
+        return  # Si la instancia no tiene ID, no hacer nada
+
+    try:
+        register = sender.objects.get(pk=instance.pk)
+        if register.check_in:
+            register.date = register.check_in.date()
+
+            if 5 <= register.check_in.hour < 18:
+                register.is_day_shift = True
+            else:
+                register.is_day_shift = False
+            register.save()
+    except sender.DoesNotExist:
+        pass
 @receiver(pre_save, sender=Staff)
 def pre_save_photo(sender, instance, **kwargs):
     if not instance.id:

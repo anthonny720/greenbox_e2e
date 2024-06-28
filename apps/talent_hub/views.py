@@ -436,7 +436,7 @@ class OutsourcingView(APIView):
 
             users = Staff.objects.filter(
                 Q(date_of_farewell__isnull=True) | Q(date_of_farewell__gte=start_date)
-            ).prefetch_related('tracking_staff', 'position').order_by('name')
+            ).prefetch_related('tracking_staff', 'position').order_by('full_name')
 
             summary_data = []
 
@@ -482,7 +482,7 @@ class OutsourcingView(APIView):
                             user_summary['total_days_worked'] -= 1
                         if attendance.absenteeism.name == 'Descanso semanal' or attendance.absenteeism.name == 'CONADIS' or attendance.absenteeism.name == 'Descanso feriado' or attendance.absenteeism.name == 'Descanso colaborador mes':
                             user_summary['descanso_semanal'] += 1
-                            user_summary['total_days_worked'] -= 1
+
                         if attendance.absenteeism.name == 'Licencia sin gose de haber':
                             user_summary['dias_licencia_sin_gose_de_haber'].append(format_date)
                             user_summary['licencia_sin_gose_de_haber'] += 1

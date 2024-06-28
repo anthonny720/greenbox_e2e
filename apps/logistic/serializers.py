@@ -17,8 +17,8 @@ class LotSummarySerializer(serializers.ModelSerializer):
         model = Lot
         fields = (
             'id', 'lot', 'product', 'datetime_download_started', 'condition', 'stock', 'weight_net', 'download_price',
-            'freight', 'plant_price', 'weight_usable','freight_boxes')
-
+            'freight', 'plant_price', 'weight_usable', 'freight_boxes', 'discount_price_kg', 'discount_price',
+            'weight_reject')
 
 class LotSerializer(serializers.ModelSerializer):
     class Meta:
