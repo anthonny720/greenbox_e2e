@@ -90,14 +90,12 @@ WSGI_APPLICATION = 'core.wsgi.application'
 #     }
 # }
 
-DATABASES = {'default': {'ENGINE': 'django.db.backends.postgresql_psycopg2', 'NAME': 'backend', 'USER': 'postgres',
-                         'PASSWORD': 'postgres', 'HOST': 'db', 'PORT': '5432', }}
+# DATABASES = {'default': {'ENGINE': 'django.db.backends.postgresql_psycopg2', 'NAME': 'backend', 'USER': 'postgres',
+                         # 'PASSWORD': 'postgres', 'HOST': 'db', 'PORT': '5432', }}
 
-# DATABASES = {'default': env.db('DATABASE_URL', default='postgres:///e2e_db')}
+DATABASES = {'default': env.db('DATABASE_URL', default='postgres:///e2e_db')}
 DATABASES['default']['ATOMIC_REQUESTS'] = True
 
-# CACHES = {'default': {'BACKEND': 'django_redis.cache.RedisCache', 'LOCATION': 'redis://redis_auth:6379',
-#                       'OPTIONS': {'CLIENT_CLASS': 'django_redis.client.DefaultClient', }}}
 
 # Password validation
 # https://docs.djangoproject.com/en/4.2/ref/settings/#auth-password-validators
@@ -116,7 +114,7 @@ AUTH_PASSWORD_VALIDATORS = [{'NAME': 'django.contrib.auth.password_validation.Us
 # Internationalization
 # https://docs.djangoproject.com/en/4.2/topics/i18n/
 
-LANGUAGE_CODE = 'es-ES'
+LANGUAGE_CODE = 'es-PE'
 
 TIME_ZONE = 'America/Lima'
 

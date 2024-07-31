@@ -5,6 +5,8 @@ from simple_history.models import HistoricalRecords
 from apps.user.models import Departments, Position
 from django.db.models.signals import pre_save, post_delete, post_save
 from django.dispatch import receiver
+from django.utils import timezone
+
 
 def get_upload_to(instance, filename):
     extension = filename.split('.')[-1]
@@ -162,8 +164,6 @@ class Tracking(models.Model):
                 time_worked -= lunch_time
             self.worked_hours = time_worked
 
-
-
         if self.absenteeism and self.absenteeism_hours:
             absenteeism_seconds = (
                     self.absenteeism_hours.hour * 3600 + self.absenteeism_hours.minute * 60 + self.absenteeism_hours.second)
@@ -194,7 +194,11 @@ class Tracking(models.Model):
             pass
 
         if self.check_in:
-            self.date = self.check_in.date()
+            if timezone.is_naive(self.check_in):
+                # Convertir a "aware" usando la zona horaria por defecto del proyecto
+                self.check_in = timezone.make_aware(self.check_in, timezone.get_default_timezone())
+                # Extraer la fecha en la zona horaria local
+            self.date = timezone.localtime(self.check_in).date()
 
         try:
             if 5 <= self.check_in.hour < 18:
@@ -207,23 +211,8 @@ class Tracking(models.Model):
         super().save(force_insert, force_update, using, update_fields)
 
 
-@receiver(post_save, sender=Tracking)
-def post_save_tracking(sender, instance, **kwargs):
-    if not instance.id:
-        return  # Si la instancia no tiene ID, no hacer nada
 
-    try:
-        register = sender.objects.get(pk=instance.pk)
-        if register.check_in:
-            register.date = register.check_in.date()
 
-            if 5 <= register.check_in.hour < 18:
-                register.is_day_shift = True
-            else:
-                register.is_day_shift = False
-            register.save()
-    except sender.DoesNotExist:
-        pass
 @receiver(pre_save, sender=Staff)
 def pre_save_photo(sender, instance, **kwargs):
     if not instance.id:
