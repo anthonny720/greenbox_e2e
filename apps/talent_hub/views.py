@@ -1,4 +1,5 @@
 from datetime import datetime, date
+
 from apps.user.models import Departments
 from apps.user.serializers import DepartmentWithChildrenSerializer
 from django.db import DatabaseError

@@ -14,10 +14,11 @@ class UserAccountAdmin(BaseUserAdmin):
                  ("Access URL", {"fields": ("access_url",)}),
                  )
 
-    add_fieldsets = ((None, {"classes": ("wide",), "fields": ("email",  "password1", "password2","position","area"), },),)
+    add_fieldsets = (
+    (None, {"classes": ("wide",), "fields": ("email", "password1", "password2", "position", "area"), },),)
 
-    list_display = ("email",  "first_name", "last_name", "is_staff", "is_active",)
-    search_fields = ("email",  "first_name", "last_name")
+    list_display = ("email", "first_name", "last_name", "is_staff", "is_active",)
+    search_fields = ("email", "first_name", "last_name")
     ordering = ("email",)
 
 
@@ -34,6 +35,8 @@ class DepartmentAdmin(admin.ModelAdmin):
 class PositionAdmin(admin.ModelAdmin):
     list_display = ("name",)
     search_fields = ("name",)
+
+
 @admin.register(AccessUrl)
 class AccessUrlAdmin(admin.ModelAdmin):
     list_display = ("name",)

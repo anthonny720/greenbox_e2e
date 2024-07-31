@@ -1,11 +1,12 @@
 import uuid
 from datetime import timedelta, datetime, time
-from django.db import models
-from simple_history.models import HistoricalRecords
+
 from apps.user.models import Departments, Position
-from django.db.models.signals import pre_save, post_delete, post_save
+from django.db import models
+from django.db.models.signals import pre_save, post_delete
 from django.dispatch import receiver
 from django.utils import timezone
+from simple_history.models import HistoricalRecords
 
 
 def get_upload_to(instance, filename):
@@ -13,12 +14,12 @@ def get_upload_to(instance, filename):
     return f'staff/{instance.dni}/{instance.id}.{extension}'
 
 
-
 class Staff(models.Model):
     class Meta:
         verbose_name = 'Personal'
         verbose_name_plural = 'Personal'
         ordering = ['last_name', 'name']
+
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     name = models.CharField(max_length=100, verbose_name='Nombre')
     last_name = models.CharField(max_length=100, verbose_name='Apellido')
@@ -47,7 +48,6 @@ class Staff(models.Model):
 
     def get_full_name(self):
         return f'{self.last_name} {self.name}'
-
 
     def save(self, force_insert=False, force_update=False, using=None, update_fields=None):
         self.full_name = f'{self.last_name} {self.name}'
@@ -150,7 +150,6 @@ class Tracking(models.Model):
         except:
             pass
 
-
         if self.lunch_end:
             self.real_lunch_end = self.lunch_end
             if self.lunch_start:
@@ -209,8 +208,6 @@ class Tracking(models.Model):
             pass
 
         super().save(force_insert, force_update, using, update_fields)
-
-
 
 
 @receiver(pre_save, sender=Staff)

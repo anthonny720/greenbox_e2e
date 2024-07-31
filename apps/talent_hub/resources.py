@@ -16,7 +16,7 @@ class StaffResource(resources.ModelResource):
     birthday = fields.Field(
         column_name='birthday',
         attribute='birthday',
-        widget=DateWidget('%Y-%m-%d')) # Asegúrate de que el formato coincide con el de tu archivo de importación
+        widget=DateWidget('%Y-%m-%d'))  # Asegúrate de que el formato coincide con el de tu archivo de importación
     date_of_admission = fields.Field(
         column_name='date_of_admission',
         attribute='date_of_admission',
@@ -49,4 +49,7 @@ class StaffResource(resources.ModelResource):
         report_skipped = False
         # Especifica aquí todos los campos que deseas importar/exportar
         import_id_fields = ('dni',)
-        fields = ('id', 'name', 'last_name', 'full_name', 'dni', 'photo', 'email', 'status', 'phone', 'position', 'birthday', 'date_of_admission', 'date_of_farewell', 'area', 'overtime_hours', 'trusted', 'hours_per_day', 'hours_saturday', 'hours_sunday')
+        fields = (
+        'id', 'name', 'last_name', 'full_name', 'dni', 'photo', 'email', 'status', 'phone', 'position', 'birthday',
+        'date_of_admission', 'date_of_farewell', 'area', 'overtime_hours', 'trusted', 'hours_per_day', 'hours_saturday',
+        'hours_sunday')

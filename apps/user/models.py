@@ -1,4 +1,5 @@
 import uuid
+
 # from core.producer import producer
 from django.contrib.auth.models import BaseUserManager, AbstractBaseUser, PermissionsMixin
 from django.db import models
@@ -37,6 +38,7 @@ class AccessUrl(models.Model):
     def __str__(self):
         return self.name
 
+
 class Position(models.Model):
     class Meta:
         verbose_name = 'Cargo'
@@ -44,7 +46,8 @@ class Position(models.Model):
         ordering = ['name']
 
     name = models.CharField(max_length=50, unique=True, verbose_name='Cargo')
-    salary = models.DecimalField(max_digits=10, decimal_places=2, blank=True, null=True, verbose_name='Salario', default=0.00)
+    salary = models.DecimalField(max_digits=10, decimal_places=2, blank=True, null=True, verbose_name='Salario',
+                                 default=0.00)
 
     def __str__(self):
         return self.name
@@ -52,6 +55,7 @@ class Position(models.Model):
 
 def user_directory_path(instance, filename):
     return f'users/picture_{instance.slug}.{filename.split(".")[1]}'
+
 
 def signature_directory_path(instance, filename):
     return f'users/signature_{instance.slug}.{filename.split(".")[1]}'

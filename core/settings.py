@@ -91,11 +91,10 @@ WSGI_APPLICATION = 'core.wsgi.application'
 # }
 
 # DATABASES = {'default': {'ENGINE': 'django.db.backends.postgresql_psycopg2', 'NAME': 'backend', 'USER': 'postgres',
-                         # 'PASSWORD': 'postgres', 'HOST': 'db', 'PORT': '5432', }}
+# 'PASSWORD': 'postgres', 'HOST': 'db', 'PORT': '5432', }}
 
 DATABASES = {'default': env.db('DATABASE_URL', default='postgres:///e2e_db')}
 DATABASES['default']['ATOMIC_REQUESTS'] = True
-
 
 # Password validation
 # https://docs.djangoproject.com/en/4.2/ref/settings/#auth-password-validators
@@ -178,7 +177,6 @@ EMAIL_USE_TLS = True
 # Default "from" address for sending emails
 DEFAULT_FROM_EMAIL = 'Greenbox <noreply@greenbox.com>'
 
-
 # Default "from" address for sending emails
 
 TWILIO_ACCOUNT_SID = env('TWILIO_ACCOUNT_SID')
@@ -193,7 +191,6 @@ if not DEBUG:
     CSRF_TRUSTED_ORIGINS = env.list('CSRF_TRUSTED_ORIGINS_DEPLOY')
 
 # aws settings
-
 
 
 AWS_ACCESS_KEY_ID = env('AWS_ACCESS_KEY_ID')
