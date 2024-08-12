@@ -1,0 +1,15 @@
+{
+  "files": {
+    "main.css": "/static/css/main.01f45c73.css",
+    "main.js": "/static/js/main.7d8a692d.js",
+    "static/media/back.png": "/static/media/back.a4ccd9cdf94955ea70f8.png",
+    "static/media/Cascadia.woff": "/static/media/Cascadia.9c679782671c61f121fc.woff",
+    "index.html": "/index.html",
+    "main.01f45c73.css.map": "/static/css/main.01f45c73.css.map",
+    "main.7d8a692d.js.map": "/static/js/main.7d8a692d.js.map"
+  },
+  "entrypoints": [
+    "static/css/main.01f45c73.css",
+    "static/js/main.7d8a692d.js"
+  ]
+}
