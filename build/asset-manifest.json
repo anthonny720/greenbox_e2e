@@ -1,15 +1,19 @@
 {
   "files": {
-    "main.css": "/static/css/main.01f45c73.css",
-    "main.js": "/static/js/main.7d8a692d.js",
+    "main.css": "/static/css/main.d8b15b6f.css",
+    "main.js": "/static/js/main.8303481e.js",
+    "static/media/fotocheck.jpg": "/static/media/fotocheck.e02b21fff235a943cc30.jpg",
     "static/media/back.png": "/static/media/back.a4ccd9cdf94955ea70f8.png",
+    "static/media/login.png": "/static/media/login.8db7a8ed4061397336ab.png",
+    "static/media/logo-horizontal-greenboxM.png": "/static/media/logo-horizontal-greenboxM.ab6e12f27c46f6523591.png",
     "static/media/Cascadia.woff": "/static/media/Cascadia.9c679782671c61f121fc.woff",
+    "static/media/juanz.png": "/static/media/juanz.ee8892bd0e74a152454b.png",
     "index.html": "/index.html",
-    "main.01f45c73.css.map": "/static/css/main.01f45c73.css.map",
-    "main.7d8a692d.js.map": "/static/js/main.7d8a692d.js.map"
+    "main.d8b15b6f.css.map": "/static/css/main.d8b15b6f.css.map",
+    "main.8303481e.js.map": "/static/js/main.8303481e.js.map"
   },
   "entrypoints": [
-    "static/css/main.01f45c73.css",
-    "static/js/main.7d8a692d.js"
+    "static/css/main.d8b15b6f.css",
+    "static/js/main.8303481e.js"
   ]
 }
